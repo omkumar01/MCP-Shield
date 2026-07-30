@@ -477,14 +477,25 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           
-          JOBS=("lint" "security" "codeql" "unit-tests" "integration-tests" "docker-build" "helm-lint" "sbom")
-          for job in "${JOBS[@]}"; do
-            status="${{ needs.$job.result }}"
-            echo "| $job | $status |" >> $GITHUB_STEP_SUMMARY
-          done
+          # Check each job status explicitly
+          echo "| lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| codeql | ${{ needs.codeql.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| unit-tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| integration-tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| docker-build | ${{ needs.docker-build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| helm-lint | ${{ needs.helm-lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| sbom | ${{ needs.sbom.result }} |" >> $GITHUB_STEP_SUMMARY
           
           # Check if any job failed
-          if echo "${{ toJson(needs) }}" | grep -q '"result": "failure"'; then
+          if [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.security.result }}" == "failure" ]] || \
+             [[ "${{ needs.codeql.result }}" == "failure" ]] || \
+             [[ "${{ needs.unit-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.integration-tests.result }}" == "failure" ]] || \
+             [[ "${{ needs.docker-build.result }}" == "failure" ]] || \
+             [[ "${{ needs.helm-lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.sbom.result }}" == "failure" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **Pipeline failed** - Check individual job logs for details" >> $GITHUB_STEP_SUMMARY
             exit 1
