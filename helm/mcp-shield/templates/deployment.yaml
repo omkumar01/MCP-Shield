@@ -116,9 +116,9 @@ spec:
             - name: RUST_BACKTRACE
               value: "1"
             - name: OTEL_SERVICE_NAME
-              value: {{ include "mcp-shield.fullname" . }}
+              value: {{ include 'mcp-shield.fullname' . }}
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "service.name={{ include \"mcp-shield.fullname\" . }},deployment.environment={{ .Values.global.environment }},kubernetes.namespace={{ .Release.Namespace }},kubernetes.pod.name=$(POD_NAME)"
+              value: "service.name={{ include 'mcp-shield.fullname' . }},deployment.environment={{ .Values.global.environment }},kubernetes.namespace={{ .Release.Namespace }},kubernetes.pod.name=$(POD_NAME)"
           {{- with .Values.env }}
           {{- toYaml . | nindent 12 }}
           {{- end }}

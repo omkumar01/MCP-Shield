@@ -190,7 +190,7 @@ jobs:
           shared-key: ${{ runner.os }}-cargo-
 
       - name: Run unit tests
-        run: cargo test --locked --lib
+        run: cargo test --lib
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
