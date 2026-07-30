@@ -154,7 +154,7 @@ jobs:
           queries: +security-and-quality
 
       - name: Build for CodeQL
-        run: cargo build --release --locked
+        run: cargo build --release --offline
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
