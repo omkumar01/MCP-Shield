@@ -35,7 +35,7 @@ docker buildx build \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --build-arg BUILD_VERSION=v0.1.0 \
   --build-arg VCS_REF=$(git rev-parse HEAD) \
-  --build-arg VCS_URL=https://github.com/your-org/mcp-shield \
+  --build-arg VCS_URL=https://github.com/omkumar01/mcp-shield \
   .
 ```
 
@@ -61,6 +61,11 @@ docker run --rm -it \
   -v $(pwd)/policies:/etc/mcp-shield/policies:ro \
   mcp-shield:latest
 ```
+#### OR
+```
+docker run --rm -it -p 8080:8080 -p 9090:9090 -p 9091:9091 -v $(pwd)/config:/etc/mcp-shield/config:ro -v $(pwd)/policies:/etc/mcp-shield/policies:ro mcp-shield:latest
+```
+
 
 ### Production
 ```bash

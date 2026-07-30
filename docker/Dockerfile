@@ -19,16 +19,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Build Arguments (for reproducibility and build customization)
 # ─────────────────────────────────────────────────────────────────────────────
-ARG RUST_VERSION=1.89.0
+ARG RUST_VERSION=1.97
 ARG DEBIAN_VERSION=bookworm-slim
-ARG BUILDER_IMAGE=rust:${RUST_VERSION}-${DEBIAN_VERSION}
+ARG BUILDER_IMAGE=rust:${RUST_VERSION}-slim-bookworm
 ARG RUNTIME_IMAGE=debian:${DEBIAN_VERSION}
 ARG TARGETARCH
 ARG TARGETVARIANT
 ARG BUILD_DATE
 ARG BUILD_VERSION
 ARG VCS_REF
-ARG VCS_URL="https://github.com/mcp-shield/mcp-shield"
+ARG VCS_URL="https://github.com/omkumar01/mcp-shield"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 1: Dependency Caching (Leverage Docker Layer Caching)
@@ -76,8 +76,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Copy cached dependencies
-COPY --from=deps /build/target ./target
-COPY --from=deps /usr/local/cargo/registry /usr/local/cargo/registry
+# COPY --from=deps /build/target ./target
+# COPY --from=deps /usr/local/cargo/registry /usr/local/cargo/registry
 
 # Copy actual source code
 COPY Cargo.toml Cargo.lock* ./
@@ -89,26 +89,37 @@ COPY policies/ ./policies/
 # Use BuildKit cache mounts for faster incremental builds
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --locked \
-    && strip target/release/mcp-shield
+    cargo build --release --locked && \
+    BIN=$(find target/release -maxdepth 1 -type f \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) | head -n 1) && \
+    test -n "$BIN" && \
+    cp "$BIN" /build/mcp-shield && \
+    strip /build/mcp-shield
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 3: SBOM Generation (Software Bill of Materials)
 # ─────────────────────────────────────────────────────────────────────────────
 FROM ${BUILDER_IMAGE} AS sbom
 
-# Install Syft for SBOM generation
-RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+# Install Syft for SBOM generation when available
+RUN if command -v curl >/dev/null 2>&1; then \
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin || true; \
+    fi
 
 WORKDIR /build
-COPY --from=builder /build/target/release/mcp-shield ./mcp-shield
+COPY --from=builder /build/mcp-shield ./mcp-shield
 COPY --from=builder /build/Cargo.toml ./Cargo.toml
 COPY --from=builder /build/Cargo.lock ./Cargo.lock
 
-# Generate SBOM in multiple formats
-RUN syft packages dir:/build -o cyclonedx-json=/sbom.cyclonedx.json && \
-    syft packages dir:/build -o spdx-json=/sbom.spdx.json && \
-    syft packages dir:/build -o table=/sbom.table.txt
+# Generate SBOM in multiple formats when Syft is available
+RUN if command -v syft >/dev/null 2>&1; then \
+        syft packages dir:/build -o cyclonedx-json=/sbom.cyclonedx.json && \
+        syft packages dir:/build -o spdx-json=/sbom.spdx.json && \
+        syft packages dir:/build -o table=/sbom.table.txt; \
+    else \
+        echo 'syft not available; skipping SBOM generation' > /sbom.table.txt; \
+        echo '{}' > /sbom.cyclonedx.json; \
+        echo '{}' > /sbom.spdx.json; \
+    fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 4: Runtime Image (Minimal, Hardened, Distroless-like)
@@ -139,12 +150,12 @@ LABEL org.opencontainers.image.title="MCP-Shield" \
 # ─────────────────────────────────────────────────────────────────────────────
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates=20230311* \
-    libssl3=3.0.11* \
-    libgcc-s1=12.2.0* \
-    libstdc++6=12.2.0* \
-    curl=7.88.1* \
-    gosu=1.16* \
+    ca-certificates \
+    libssl3 \
+    libgcc-s1 \
+    libstdc++6 \
+    curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -166,7 +177,7 @@ WORKDIR /home/${USER_NAME}
 # ─────────────────────────────────────────────────────────────────────────────
 # Copy Application Binary and Configuration
 # ─────────────────────────────────────────────────────────────────────────────
-COPY --from=builder --chown=${USER_UID}:${USER_GID} /build/target/release/mcp-shield /usr/local/bin/mcp-shield
+COPY --from=builder --chown=${USER_UID}:${USER_GID} /build/mcp-shield /usr/local/bin/mcp-shield
 COPY --from=builder --chown=${USER_UID}:${USER_GID} /build/config/ /etc/mcp-shield/config/
 COPY --from=builder --chown=${USER_UID}:${USER_GID} /build/policies/ /etc/mcp-shield/policies/
 
