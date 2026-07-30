@@ -15,6 +15,7 @@ pub const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
 
 /// Parameters for the `initialize` request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InitializeParams {
     /// The protocol version the client supports.
     pub protocol_version: String,
@@ -29,6 +30,7 @@ pub struct InitializeParams {
 
 /// Result of the `initialize` request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InitializeResult {
     /// The protocol version the server will use.
     pub protocol_version: String,
@@ -48,6 +50,7 @@ pub struct InitializeResult {
 
 /// Client capabilities declared during initialization.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientCapabilities {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub experimental: Option<Value>,
@@ -61,6 +64,7 @@ pub struct ClientCapabilities {
 
 /// Client roots capability.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RootsCapability {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_changed: Option<bool>,
@@ -68,6 +72,7 @@ pub struct RootsCapability {
 
 /// Server capabilities declared during initialization.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerCapabilities {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completions: Option<Value>,
@@ -90,6 +95,7 @@ pub struct ServerCapabilities {
 
 /// Server tools capability.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolsCapability {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_changed: Option<bool>,
@@ -97,6 +103,7 @@ pub struct ToolsCapability {
 
 /// Server resources capability.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourcesCapability {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_changed: Option<bool>,
@@ -107,6 +114,7 @@ pub struct ResourcesCapability {
 
 /// Server prompts capability.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromptsCapability {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_changed: Option<bool>,
@@ -116,6 +124,7 @@ pub struct PromptsCapability {
 
 /// Client or server implementation metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Implementation {
     pub name: String,
     pub version: String,
@@ -125,6 +134,7 @@ pub struct Implementation {
 
 /// Parameters for `tools/list`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolsListParams {
     /// Optional cursor for pagination.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -137,6 +147,7 @@ pub struct ToolsListParams {
 
 /// Result of `tools/list`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolsListResult {
     pub tools: Vec<Tool>,
 
@@ -146,6 +157,7 @@ pub struct ToolsListResult {
 
 /// A tool definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Tool {
     /// Tool name. Must follow `prefix:name` format in MCP-Shield.
     pub name: String,
@@ -164,6 +176,7 @@ pub struct Tool {
 
 /// Tool annotations providing hints about tool behavior.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolAnnotations {
     /// Hint that the tool does not modify state.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -188,6 +201,7 @@ pub struct ToolAnnotations {
 
 /// Parameters for `tools/call`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolsCallParams {
     /// The tool name (must follow `prefix:name` format).
     pub name: String,
@@ -197,12 +211,13 @@ pub struct ToolsCallParams {
     pub arguments: Value,
 
     /// Metadata with optional progress token.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub _meta: Option<Meta>,
+    #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Meta>,
 }
 
 /// Result of `tools/call`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolsCallResult {
     /// Array of content blocks.
     pub content: Vec<Content>,
@@ -239,6 +254,7 @@ pub enum Content {
 
 /// Parameters for `resources/list`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourcesListParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -249,6 +265,7 @@ pub struct ResourcesListParams {
 
 /// Result of `resources/list`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourcesListResult {
     pub resources: Vec<Resource>,
 
@@ -258,6 +275,7 @@ pub struct ResourcesListResult {
 
 /// A resource reference.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resource {
     pub uri: String,
     pub name: String,
@@ -271,6 +289,7 @@ pub struct Resource {
 
 /// Resource contents.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceContents {
     pub uri: String,
 
@@ -286,6 +305,7 @@ pub struct ResourceContents {
 
 /// Parameters for `prompts/list`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromptsListParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
@@ -296,6 +316,7 @@ pub struct PromptsListParams {
 
 /// Result of `prompts/list`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromptsListResult {
     pub prompts: Vec<Prompt>,
 
@@ -305,6 +326,7 @@ pub struct PromptsListResult {
 
 /// A prompt definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Prompt {
     pub name: String,
 
@@ -317,6 +339,7 @@ pub struct Prompt {
 
 /// A prompt argument.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PromptArgument {
     pub name: String,
 
@@ -331,12 +354,14 @@ pub struct PromptArgument {
 
 /// Result of `ping`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PingResult {}
 
 // ── Logging ─────────────────────────────────────────────────────────
 
 /// A log message notification from server to client.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoggingParams {
     pub level: LoggingLevel,
     pub logger: String,
@@ -361,6 +386,7 @@ pub enum LoggingLevel {
 
 /// Progress notification parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProgressParams {
     pub progress_token: Value,
     pub progress: f64,
@@ -373,6 +399,7 @@ pub struct ProgressParams {
 
 /// Metadata attached to params.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Meta {
     /// Progress token for tracking long-running operations.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -470,7 +497,7 @@ mod tests {
         let params: ToolsCallParams = serde_json::from_str(raw).unwrap();
         assert_eq!(params.name, "com.example.echo");
         assert_eq!(params.arguments["message"], "hello");
-        assert!(params._meta.is_some());
+        assert!(params.meta.is_some());
     }
 
     #[test]

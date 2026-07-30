@@ -48,7 +48,7 @@ impl EchoServer {
     pub fn list_tools() -> Vec<Tool> {
         vec![
             Tool {
-                name: "com.echo.echo".to_string(),
+                name: "com.echo:echo".to_string(),
                 description: Some("Echoes back the input message as text.".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -69,7 +69,7 @@ impl EchoServer {
                 }),
             },
             Tool {
-                name: "com.echo.add".to_string(),
+                name: "com.echo:add".to_string(),
                 description: Some("Adds two integers and returns the sum.".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -94,7 +94,7 @@ impl EchoServer {
                 }),
             },
             Tool {
-                name: "com.echo.get_time".to_string(),
+                name: "com.echo:get_time".to_string(),
                 description: Some("Returns the current server time in RFC 3339 format.".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -110,7 +110,7 @@ impl EchoServer {
                 }),
             },
             Tool {
-                name: "com.echo.uppercase".to_string(),
+                name: "com.echo:uppercase".to_string(),
                 description: Some("Converts a string to uppercase.".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -138,7 +138,7 @@ impl EchoServer {
     /// Returns the tool result as JSON, or an error if the tool is unknown.
     pub fn handle_tool_call(name: &str, arguments: &Value) -> Result<Value, String> {
         match name {
-            "com.echo.echo" => {
+            "com.echo:echo" => {
                 let message = arguments
                     .get("message")
                     .and_then(|v| v.as_str())
@@ -149,7 +149,7 @@ impl EchoServer {
                     ]
                 }))
             }
-            "com.echo.add" => {
+            "com.echo:add" => {
                 let a = arguments
                     .get("a")
                     .and_then(|v| v.as_i64())
@@ -164,14 +164,14 @@ impl EchoServer {
                     ]
                 }))
             }
-            "com.echo.get_time" => {
+            "com.echo:get_time" => {
                 Ok(json!({
                     "content": [
                         {"type": "text", "text": chrono::Utc::now().to_rfc3339()}
                     ]
                 }))
             }
-            "com.echo.uppercase" => {
+            "com.echo:uppercase" => {
                 let text = arguments
                     .get("text")
                     .and_then(|v| v.as_str())
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn test_echo_tool_call() {
         let args = json!({"message": "hello"});
-        let result = EchoServer::handle_tool_call("com.echo.echo", &args).unwrap();
+        let result = EchoServer::handle_tool_call("com.echo:echo", &args).unwrap();
         assert_eq!(
             result["content"][0]["text"],
             "Echo: hello"
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn test_add_tool_call() {
         let args = json!({"a": 5, "b": 3});
-        let result = EchoServer::handle_tool_call("com.echo.add", &args).unwrap();
+        let result = EchoServer::handle_tool_call("com.echo:add", &args).unwrap();
         assert_eq!(
             result["content"][0]["text"],
             "5 + 3 = 8"
@@ -231,13 +231,13 @@ mod tests {
 
     #[test]
     fn test_unknown_tool_returns_error() {
-        let result = EchoServer::handle_tool_call("com.echo.unknown", &json!({}));
+        let result = EchoServer::handle_tool_call("com.echo:unknown", &json!({}));
         assert!(result.is_err());
     }
 
     #[test]
     fn test_missing_argument() {
-        let result = EchoServer::handle_tool_call("com.echo.echo", &json!({}));
+        let result = EchoServer::handle_tool_call("com.echo:echo", &json!({}));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("message"));
     }
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn test_uppercase_tool() {
         let args = json!({"text": "hello world"});
-        let result = EchoServer::handle_tool_call("com.echo.uppercase", &args).unwrap();
+        let result = EchoServer::handle_tool_call("com.echo:uppercase", &args).unwrap();
         assert_eq!(
             result["content"][0]["text"],
             "HELLO WORLD"

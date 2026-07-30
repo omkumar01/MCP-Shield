@@ -343,4 +343,4 @@ mcp-shield/
 
 ## License
 
-MCP-Shield Non-Commercial License
+PolyForm Noncommercial License 1.0.0
