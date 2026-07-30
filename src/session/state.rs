@@ -118,11 +118,8 @@ pub trait SessionManager: Send + Sync {
     ///
     /// Once locked, attempts to access other contexts (especially private ones)
     /// will be denied.
-    async fn lock_context(
-        &self,
-        session_id: &str,
-        scope: ContextScope,
-    ) -> Result<(), SessionError>;
+    async fn lock_context(&self, session_id: &str, scope: ContextScope)
+    -> Result<(), SessionError>;
 
     /// Check if a context access is allowed given the current session state.
     async fn check_context_access(
@@ -287,7 +284,10 @@ mod tests {
     #[tokio::test]
     async fn test_create_and_get_session() {
         let manager = InMemorySessionManager::new();
-        let session = manager.create_session(Some("client-1".into())).await.unwrap();
+        let session = manager
+            .create_session(Some("client-1".into()))
+            .await
+            .unwrap();
 
         let retrieved = manager.get_session(&session.session_id).await.unwrap();
         assert!(retrieved.is_some());

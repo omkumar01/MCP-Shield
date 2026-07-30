@@ -7,6 +7,6 @@ pub mod jsonrpc;
 pub mod message;
 pub mod schema;
 
-pub use jsonrpc::{JsonRpcMessage, JsonRpcErrorObj};
+pub use jsonrpc::{JsonRpcErrorObj, JsonRpcMessage};
 pub use message::*;
 pub use schema::SchemaValidator;

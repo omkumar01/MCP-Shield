@@ -3,9 +3,9 @@
 //! All errors are expressed as [`McpError`], which maps to JSON-RPC 2.0 error codes
 //! and can be serialized as HTTP responses.
 
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde_json::json;
 
 /// JSON-RPC 2.0 standard error codes.
@@ -104,7 +104,9 @@ impl McpError {
     /// Returns the HTTP status code that corresponds to this error.
     pub fn http_status(&self) -> StatusCode {
         match self {
-            Self::Unauthorized(_) | Self::JwtError(_) | Self::OAuthError(_) => StatusCode::UNAUTHORIZED,
+            Self::Unauthorized(_) | Self::JwtError(_) | Self::OAuthError(_) => {
+                StatusCode::UNAUTHORIZED
+            }
             Self::ScopeDenied(_) => StatusCode::FORBIDDEN,
             Self::InvalidRequest(_) | Self::ParseError(_) => StatusCode::BAD_REQUEST,
             Self::InvalidParams(_) => StatusCode::BAD_REQUEST,
@@ -281,7 +283,12 @@ mod tests {
         assert_eq!(resp["jsonrpc"], "2.0");
         assert_eq!(resp["id"], 42);
         assert_eq!(resp["error"]["code"], METHOD_NOT_FOUND);
-        assert!(resp["error"]["message"].as_str().unwrap().contains("tools/xyz"));
+        assert!(
+            resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("tools/xyz")
+        );
     }
 
     #[test]

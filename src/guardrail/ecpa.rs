@@ -102,10 +102,7 @@ pub trait EcpaGuardrail: Send + Sync {
     ) -> Result<ConstraintResult, EcpaError>;
 
     /// Register a constraint set for a tool.
-    async fn register_constraints(
-        &self,
-        constraints: ToolConstraint,
-    ) -> Result<(), EcpaError>;
+    async fn register_constraints(&self, constraints: ToolConstraint) -> Result<(), EcpaError>;
 
     /// List all registered constraint sets.
     async fn list_constraints(&self) -> Vec<String>;
@@ -253,10 +250,7 @@ impl RuleEcpaGuardrail {
         // Full implementation will parse the expression and evaluate it.
         let expr = &predicate.expression;
         for field in &predicate.fields {
-            let value = arguments
-                .get(field)
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let value = arguments.get(field).and_then(|v| v.as_str()).unwrap_or("");
             if expr.contains("starts_with(") {
                 let prefix = expr
                     .trim_start_matches("starts_with(")

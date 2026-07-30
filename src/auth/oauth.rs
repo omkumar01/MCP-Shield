@@ -6,11 +6,11 @@
 //! - Serves OAuth Authorization Server metadata (OIDC discovery)
 
 use axum::{
+    Json, Router,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
-    Json, Router,
 };
 use serde_json::json;
 
@@ -19,25 +19,25 @@ use serde_json::json;
 /// Per the MCP authorization specification, the WWW-Authenticate header
 /// must point to the Protected Resource Metadata (PRM) document.
 pub fn unauthorized_response(prm_url: &str) -> Response {
-    let mut response = (StatusCode::UNAUTHORIZED, Json(json!({
-        "jsonrpc": "2.0",
-        "error": {
-            "code": -32001,
-            "message": "Unauthorized: valid OAuth 2.1 Bearer token required"
-        },
-        "id": null
-    })))
+    let mut response = (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32001,
+                "message": "Unauthorized: valid OAuth 2.1 Bearer token required"
+            },
+            "id": null
+        })),
+    )
         .into_response();
 
     // Add the WWW-Authenticate header pointing to the PRM
     response.headers_mut().insert(
         axum::http::header::WWW_AUTHENTICATE,
-        format!(
-            "Bearer resource_metadata=\"{}\"",
-            prm_url
-        )
-        .parse()
-        .unwrap(),
+        format!("Bearer resource_metadata=\"{}\"", prm_url)
+            .parse()
+            .unwrap(),
     );
 
     response
@@ -45,14 +45,17 @@ pub fn unauthorized_response(prm_url: &str) -> Response {
 
 /// Build a 403 Forbidden response for scope denial.
 pub fn forbidden_response(message: &str) -> Response {
-    (StatusCode::FORBIDDEN, Json(json!({
-        "jsonrpc": "2.0",
-        "error": {
-            "code": -32002,
-            "message": message
-        },
-        "id": null
-    })))
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32002,
+                "message": message
+            },
+            "id": null
+        })),
+    )
         .into_response()
 }
 

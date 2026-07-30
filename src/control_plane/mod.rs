@@ -6,6 +6,6 @@
 pub mod db;
 
 pub use db::{
-    ControlPlane, ControlPlaneError, PolicyEntry, PostgresControlPlane, StubControlPlane,
-    Tenant, UpstreamEntry,
+    ControlPlane, ControlPlaneError, PolicyEntry, PostgresControlPlane, StubControlPlane, Tenant,
+    UpstreamEntry,
 };

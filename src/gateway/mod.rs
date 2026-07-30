@@ -8,5 +8,5 @@ pub mod registry;
 pub mod router;
 
 pub use proxy::{UpstreamProxy, UpstreamServer, UpstreamTransport};
-pub use registry::{ToolRegistry, RegisteredTool};
+pub use registry::{RegisteredTool, ToolRegistry};
 pub use router::McpRouter;

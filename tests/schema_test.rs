@@ -16,25 +16,31 @@ async fn test_validate_echo_tool_schema() {
     let mut validator = SchemaValidator::new();
 
     // Valid
-    assert!(validator
-        .validate(&schema, &json!({"message": "hello"}))
-        .await
-        .is_ok());
+    assert!(
+        validator
+            .validate(&schema, &json!({"message": "hello"}))
+            .await
+            .is_ok()
+    );
 
     // Missing required field
     assert!(validator.validate(&schema, &json!({})).await.is_err());
 
     // Wrong type
-    assert!(validator
-        .validate(&schema, &json!({"message": 123}))
-        .await
-        .is_err());
+    assert!(
+        validator
+            .validate(&schema, &json!({"message": 123}))
+            .await
+            .is_err()
+    );
 
     // Empty string violates minLength
-    assert!(validator
-        .validate(&schema, &json!({"message": ""}))
-        .await
-        .is_err());
+    assert!(
+        validator
+            .validate(&schema, &json!({"message": ""}))
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -50,8 +56,18 @@ async fn test_validate_add_tool_schema() {
 
     let mut validator = SchemaValidator::new();
 
-    assert!(validator.validate(&schema, &json!({"a": 1, "b": 2})).await.is_ok());
-    assert!(validator.validate(&schema, &json!({"a": -1, "b": 2})).await.is_err());
+    assert!(
+        validator
+            .validate(&schema, &json!({"a": 1, "b": 2}))
+            .await
+            .is_ok()
+    );
+    assert!(
+        validator
+            .validate(&schema, &json!({"a": -1, "b": 2}))
+            .await
+            .is_err()
+    );
     assert!(validator.validate(&schema, &json!({"a": 1})).await.is_err());
 }
 
@@ -68,10 +84,12 @@ async fn test_schema_with_additional_properties() {
     let mut validator = SchemaValidator::new();
 
     // Additional property should fail
-    assert!(validator
-        .validate(&schema, &json!({"name": "test", "extra": true}))
-        .await
-        .is_err());
+    assert!(
+        validator
+            .validate(&schema, &json!({"name": "test", "extra": true}))
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

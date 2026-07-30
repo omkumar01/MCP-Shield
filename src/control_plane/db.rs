@@ -63,7 +63,10 @@ pub trait ControlPlane: Send + Sync {
     async fn load_policies(&self, tenant_id: &str) -> Result<Vec<PolicyEntry>, ControlPlaneError>;
 
     /// Load all active upstreams for a tenant.
-    async fn load_upstreams(&self, tenant_id: &str) -> Result<Vec<UpstreamEntry>, ControlPlaneError>;
+    async fn load_upstreams(
+        &self,
+        tenant_id: &str,
+    ) -> Result<Vec<UpstreamEntry>, ControlPlaneError>;
 
     /// Update a policy.
     async fn update_policy(&self, policy: PolicyEntry) -> Result<(), ControlPlaneError>;
@@ -106,7 +109,10 @@ impl ControlPlane for StubControlPlane {
         Ok(Vec::new())
     }
 
-    async fn load_upstreams(&self, _tenant_id: &str) -> Result<Vec<UpstreamEntry>, ControlPlaneError> {
+    async fn load_upstreams(
+        &self,
+        _tenant_id: &str,
+    ) -> Result<Vec<UpstreamEntry>, ControlPlaneError> {
         Ok(Vec::new())
     }
 
@@ -159,7 +165,10 @@ impl ControlPlane for PostgresControlPlane {
         Ok(Vec::new())
     }
 
-    async fn load_upstreams(&self, _tenant_id: &str) -> Result<Vec<UpstreamEntry>, ControlPlaneError> {
+    async fn load_upstreams(
+        &self,
+        _tenant_id: &str,
+    ) -> Result<Vec<UpstreamEntry>, ControlPlaneError> {
         tracing::warn!("PostgresControlPlane::load_upstreams() is a stub (Phase 4)");
         Ok(Vec::new())
     }

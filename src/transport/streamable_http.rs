@@ -8,10 +8,10 @@ use crate::auth::scope::ScopeEnforcer;
 use crate::error::{McpError, RequestId};
 use crate::gateway::router::McpRouter;
 use crate::protocol::jsonrpc::{JsonRpcErrorObj, JsonRpcMessage};
-use axum::extract::{State};
+use axum::Json;
+use axum::extract::State;
 use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -204,11 +204,7 @@ fn jsonrpc_error_response(code: i64, message: &str) -> Response {
 
 /// Build a simple error response with a status code and message.
 fn error_response(status: StatusCode, message: &str) -> Response {
-    (
-        status,
-        Json(json!({"error": message})),
-    )
-        .into_response()
+    (status, Json(json!({"error": message}))).into_response()
 }
 
 /// DELETE handler for the `/mcp` endpoint — terminates a session.
@@ -229,7 +225,11 @@ pub async fn handle_mcp_delete(
         }
     }
 
-    (StatusCode::NOT_FOUND, Json(json!({"error": "Session not found"}))).into_response()
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({"error": "Session not found"})),
+    )
+        .into_response()
 }
 
 #[cfg(test)]

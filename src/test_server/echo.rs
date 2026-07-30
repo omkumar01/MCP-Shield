@@ -5,7 +5,7 @@
 //! MCP initialize handshake and registers sample tools.
 
 use crate::protocol::message::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The echo test server.
 ///
@@ -95,7 +95,9 @@ impl EchoServer {
             },
             Tool {
                 name: "com.echo:get_time".to_string(),
-                description: Some("Returns the current server time in RFC 3339 format.".to_string()),
+                description: Some(
+                    "Returns the current server time in RFC 3339 format.".to_string(),
+                ),
                 input_schema: json!({
                     "type": "object",
                     "properties": {},
@@ -164,13 +166,11 @@ impl EchoServer {
                     ]
                 }))
             }
-            "com.echo:get_time" => {
-                Ok(json!({
-                    "content": [
-                        {"type": "text", "text": chrono::Utc::now().to_rfc3339()}
-                    ]
-                }))
-            }
+            "com.echo:get_time" => Ok(json!({
+                "content": [
+                    {"type": "text", "text": chrono::Utc::now().to_rfc3339()}
+                ]
+            })),
             "com.echo:uppercase" => {
                 let text = arguments
                     .get("text")
@@ -213,20 +213,14 @@ mod tests {
     fn test_echo_tool_call() {
         let args = json!({"message": "hello"});
         let result = EchoServer::handle_tool_call("com.echo:echo", &args).unwrap();
-        assert_eq!(
-            result["content"][0]["text"],
-            "Echo: hello"
-        );
+        assert_eq!(result["content"][0]["text"], "Echo: hello");
     }
 
     #[test]
     fn test_add_tool_call() {
         let args = json!({"a": 5, "b": 3});
         let result = EchoServer::handle_tool_call("com.echo:add", &args).unwrap();
-        assert_eq!(
-            result["content"][0]["text"],
-            "5 + 3 = 8"
-        );
+        assert_eq!(result["content"][0]["text"], "5 + 3 = 8");
     }
 
     #[test]
@@ -246,9 +240,6 @@ mod tests {
     fn test_uppercase_tool() {
         let args = json!({"text": "hello world"});
         let result = EchoServer::handle_tool_call("com.echo:uppercase", &args).unwrap();
-        assert_eq!(
-            result["content"][0]["text"],
-            "HELLO WORLD"
-        );
+        assert_eq!(result["content"][0]["text"], "HELLO WORLD");
     }
 }

@@ -6,7 +6,7 @@
 
 use crate::error::{McpError, REGISTRY_COLLISION};
 use crate::protocol::message::Tool;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -88,11 +88,7 @@ impl ToolRegistry {
     /// Register a tool from an upstream server.
     ///
     /// Validates the tool name format and checks for collisions before registering.
-    pub async fn register_tool(
-        &self,
-        tool: Tool,
-        server_id: &str,
-    ) -> Result<(), McpError> {
+    pub async fn register_tool(&self, tool: Tool, server_id: &str) -> Result<(), McpError> {
         let mut inner = self.inner.write().await;
         let (prefix, name) = parse_tool_name(&tool.name, inner.enforce_prefix_format)?;
 
@@ -178,11 +174,7 @@ impl ToolRegistry {
     /// List all registered tools.
     pub async fn list_tools(&self) -> Vec<Tool> {
         let inner = self.inner.read().await;
-        inner
-            .tools
-            .values()
-            .map(|r| r.tool.clone())
-            .collect()
+        inner.tools.values().map(|r| r.tool.clone()).collect()
     }
 
     /// List all registered tools from a specific upstream server.
@@ -242,10 +234,7 @@ impl Default for ToolRegistry {
 /// - Prefix must contain at least one dot (e.g., "com.example")
 /// - Only lowercase alphanumeric characters and hyphens allowed
 /// - Name: 1-128 chars, lowercase alphanumeric and underscores
-fn parse_tool_name(
-    raw_name: &str,
-    enforce_prefix: bool,
-) -> Result<(String, String), McpError> {
+fn parse_tool_name(raw_name: &str, enforce_prefix: bool) -> Result<(String, String), McpError> {
     let parts: Vec<&str> = raw_name.splitn(2, ':').collect();
 
     if parts.len() != 2 {
@@ -372,7 +361,9 @@ mod tests {
     #[tokio::test]
     async fn test_reject_no_colon() {
         let registry = ToolRegistry::new();
-        let result = registry.register_tool(make_tool("search"), "server-1").await;
+        let result = registry
+            .register_tool(make_tool("search"), "server-1")
+            .await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("qualified format"));
     }
@@ -387,7 +378,9 @@ mod tests {
     #[tokio::test]
     async fn test_reject_prefix_without_dot() {
         let registry = ToolRegistry::new();
-        let result = registry.register_tool(make_tool("example:echo"), "server-1").await;
+        let result = registry
+            .register_tool(make_tool("example:echo"), "server-1")
+            .await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("dot"));
     }
@@ -395,9 +388,16 @@ mod tests {
     #[tokio::test]
     async fn test_reject_uppercase_in_name() {
         let registry = ToolRegistry::new();
-        let result = registry.register_tool(make_tool("com.example:Echo"), "server-1").await;
+        let result = registry
+            .register_tool(make_tool("com.example:Echo"), "server-1")
+            .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid characters"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid characters")
+        );
     }
 
     #[tokio::test]
@@ -412,7 +412,12 @@ mod tests {
             .register_tool(make_tool("com.other:search"), "server-1")
             .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not in the allowed prefixes"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not in the allowed prefixes")
+        );
     }
 
     #[tokio::test]

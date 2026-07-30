@@ -10,19 +10,19 @@ use crate::auth::scope::ScopeEnforcer;
 use crate::error::McpError;
 use crate::gateway::router::McpRouter;
 use crate::protocol::jsonrpc::{JsonRpcErrorObj, JsonRpcMessage};
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use futures::stream::{self, Stream};
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
-use tokio_stream::wrappers::ReceiverStream;
+use tokio::sync::{RwLock, mpsc};
 use tokio_stream::StreamExt;
+use tokio_stream::wrappers::ReceiverStream;
 
 /// Shared state for the SSE transport.
 pub struct SseState {
@@ -87,27 +87,21 @@ pub async fn handle_sse_get(
 
     // Create the SSE stream
     let initial_event = stream::once(async move {
-        Ok::<_, Infallible>(
-            Event::default()
-                .event("endpoint")
-                .data(endpoint_url),
-        )
+        Ok::<_, Infallible>(Event::default().event("endpoint").data(endpoint_url))
     });
 
     let message_stream = ReceiverStream::new(rx).map(|msg| {
-        Ok::<_, Infallible>(
-            Event::default()
-                .event("message")
-                .data(msg.to_json_string()),
-        )
+        Ok::<_, Infallible>(Event::default().event("message").data(msg.to_json_string()))
     });
 
     let stream = initial_event.chain(message_stream);
 
     Sse::new(stream)
-        .keep_alive(KeepAlive::new()
-            .interval(Duration::from_secs(15))
-            .text("ping"))
+        .keep_alive(
+            KeepAlive::new()
+                .interval(Duration::from_secs(15))
+                .text("ping"),
+        )
         .into_response()
 }
 
@@ -164,9 +158,7 @@ pub async fn handle_sse_post(
         Ok(v) => v,
         Err(e) => {
             // Send parse error back over SSE
-            let _ = tx
-                .send(JsonRpcMessage::parse_error_response())
-                .await;
+            let _ = tx.send(JsonRpcMessage::parse_error_response()).await;
             return (StatusCode::ACCEPTED, "").into_response();
         }
     };

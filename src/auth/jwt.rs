@@ -4,9 +4,9 @@
 //! a shared HMAC secret or RSA/EC keys from a JWKS endpoint.
 
 use crate::error::McpError;
-use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation, Header, TokenData};
+use jsonwebtoken::{Algorithm, DecodingKey, Header, TokenData, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -121,9 +121,8 @@ impl JwtValidator {
 
     /// Validate a JWT token string and extract claims.
     pub fn validate_token(&self, token: &str) -> Result<JwtClaims, McpError> {
-        let header = decode_header(token).map_err(|e| McpError::JwtError(format!(
-            "Failed to decode JWT header: {}", e
-        )))?;
+        let header = decode_header(token)
+            .map_err(|e| McpError::JwtError(format!("Failed to decode JWT header: {}", e)))?;
 
         // Determine the decoding key based on algorithm
         let decoding_key = self.get_decoding_key(&header)?;
@@ -140,9 +139,8 @@ impl JwtValidator {
         validation.leeway = self.config.leeway as u64;
         validation.required_spec_claims = HashSet::new(); // Don't require any specific claims
 
-        let token_data: TokenData<Value> =
-            decode::<Value>(token, &decoding_key, &validation)
-                .map_err(|e| McpError::JwtError(format!("JWT validation failed: {}", e)))?;
+        let token_data: TokenData<Value> = decode::<Value>(token, &decoding_key, &validation)
+            .map_err(|e| McpError::JwtError(format!("JWT validation failed: {}", e)))?;
 
         // Extract typed claims from the raw value
         self.extract_claims(&header, &token_data)
@@ -152,18 +150,18 @@ impl JwtValidator {
     fn get_decoding_key(&self, header: &Header) -> Result<DecodingKey, McpError> {
         match header.alg {
             Algorithm::HS256 | Algorithm::HS384 | Algorithm::HS512 => {
-                let secret = self
-                    .config
-                    .hmac_secret
-                    .as_ref()
-                    .ok_or_else(|| {
-                        McpError::JwtError(
-                            "HMAC algorithm requires a configured jwt_secret".to_string(),
-                        )
-                    })?;
+                let secret = self.config.hmac_secret.as_ref().ok_or_else(|| {
+                    McpError::JwtError(
+                        "HMAC algorithm requires a configured jwt_secret".to_string(),
+                    )
+                })?;
                 Ok(DecodingKey::from_secret(secret.as_bytes()))
             }
-            Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512 | Algorithm::ES256 | Algorithm::ES384 => {
+            Algorithm::RS256
+            | Algorithm::RS384
+            | Algorithm::RS512
+            | Algorithm::ES256
+            | Algorithm::ES384 => {
                 let keys = self.jwks_keys.blocking_read();
                 if keys.is_empty() {
                     return Err(McpError::JwtError(format!(
@@ -182,7 +180,11 @@ impl JwtValidator {
     }
 
     /// Extract typed claims from the raw token data.
-    fn extract_claims(&self, header: &Header, token_data: &TokenData<Value>) -> Result<JwtClaims, McpError> {
+    fn extract_claims(
+        &self,
+        header: &Header,
+        token_data: &TokenData<Value>,
+    ) -> Result<JwtClaims, McpError> {
         let claims = &token_data.claims;
 
         Ok(JwtClaims {
@@ -234,9 +236,7 @@ impl JwtValidator {
         }
         let token = parts[1].trim();
         if token.is_empty() {
-            return Err(McpError::Unauthorized(
-                "Empty Bearer token".to_string(),
-            ));
+            return Err(McpError::Unauthorized("Empty Bearer token".to_string()));
         }
         Ok(token.to_string())
     }
@@ -257,7 +257,7 @@ impl JwtValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jsonwebtoken::{encode, EncodingKey, Header};
+    use jsonwebtoken::{EncodingKey, Header, encode};
 
     fn create_test_token(secret: &str, claims: Value) -> String {
         encode(
@@ -312,8 +312,7 @@ mod tests {
 
     #[test]
     fn test_reject_wrong_secret() {
-        let validator =
-            JwtValidator::with_hmac_secret("correct-secret", Some("mcp-shield".into()));
+        let validator = JwtValidator::with_hmac_secret("correct-secret", Some("mcp-shield".into()));
 
         let claims = json!({
             "sub": "client-123",
@@ -326,8 +325,7 @@ mod tests {
 
     #[test]
     fn test_reject_expired_token() {
-        let validator =
-            JwtValidator::with_hmac_secret("test-secret", Some("mcp-shield".into()));
+        let validator = JwtValidator::with_hmac_secret("test-secret", Some("mcp-shield".into()));
 
         let claims = json!({
             "sub": "client-123",
@@ -340,8 +338,7 @@ mod tests {
 
     #[test]
     fn test_scope_parsing() {
-        let validator =
-            JwtValidator::with_hmac_secret("test-secret", None);
+        let validator = JwtValidator::with_hmac_secret("test-secret", None);
 
         let claims = json!({
             "sub": "client-123",

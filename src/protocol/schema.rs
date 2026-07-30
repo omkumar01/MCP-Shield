@@ -4,8 +4,8 @@
 //! using the `jsonschema` crate. Handles unsupported dialect detection and
 //! graceful fallback.
 
-use crate::error::{McpError, INVALID_PARAMS, SCHEMA_INVALID};
-use serde_json::{json, Value};
+use crate::error::{INVALID_PARAMS, McpError, SCHEMA_INVALID};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -95,8 +95,8 @@ impl SchemaValidator {
     /// error. If no dialect is declared, assumes 2020-12.
     fn check_dialect(&self, schema: &Value) -> Result<(), McpError> {
         if let Some(dialect) = schema.get("$schema").and_then(|v| v.as_str()) {
-            let is_supported = SUPPORTED_DIALECTS.iter().any(|d| *d == dialect)
-                || dialect.is_empty();
+            let is_supported =
+                SUPPORTED_DIALECTS.iter().any(|d| *d == dialect) || dialect.is_empty();
 
             if !is_supported {
                 tracing::warn!(
@@ -118,9 +118,8 @@ impl SchemaValidator {
 
     /// Compile a JSON Schema into a reusable validator.
     fn compile_schema(&self, schema: &Value) -> Result<jsonschema::Validator, McpError> {
-        jsonschema::validator_for(schema).map_err(|e| {
-            McpError::SchemaInvalid(format!("Failed to compile schema: {}", e))
-        })
+        jsonschema::validator_for(schema)
+            .map_err(|e| McpError::SchemaInvalid(format!("Failed to compile schema: {}", e)))
     }
 
     /// Generate a cache key for a schema by hashing its JSON representation.
@@ -327,8 +326,23 @@ mod tests {
 
         let mut validator = SchemaValidator::new();
 
-        assert!(validator.validate(&schema, &json!({"input": "hello"})).await.is_ok());
-        assert!(validator.validate(&schema, &json!({"input": 42})).await.is_ok());
-        assert!(validator.validate(&schema, &json!({"input": true})).await.is_err());
+        assert!(
+            validator
+                .validate(&schema, &json!({"input": "hello"}))
+                .await
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate(&schema, &json!({"input": 42}))
+                .await
+                .is_ok()
+        );
+        assert!(
+            validator
+                .validate(&schema, &json!({"input": true}))
+                .await
+                .is_err()
+        );
     }
 }

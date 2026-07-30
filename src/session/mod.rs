@@ -6,6 +6,6 @@
 pub mod state;
 
 pub use state::{
-    AccessCheckResult, ContextAccess, ContextScope, InMemorySessionManager, Session,
-    SessionError, SessionManager, ToolCallRecord, Visibility,
+    AccessCheckResult, ContextAccess, ContextScope, InMemorySessionManager, Session, SessionError,
+    SessionManager, ToolCallRecord, Visibility,
 };

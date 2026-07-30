@@ -6,5 +6,5 @@
 pub mod metrics;
 pub mod producer;
 
-pub use metrics::{install_prometheus_exporter, McpMetrics, render_metrics};
-pub use producer::{AuditEvent, AuthDecision, EventProducer, NoopProducer, BufferingProducer};
+pub use metrics::{McpMetrics, install_prometheus_exporter, render_metrics};
+pub use producer::{AuditEvent, AuthDecision, BufferingProducer, EventProducer, NoopProducer};

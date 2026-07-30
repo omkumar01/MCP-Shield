@@ -1,7 +1,9 @@
 //! Integration tests for JSON-RPC parsing and serialization.
 
 use mcp_shield::error::RequestId;
-use mcp_shield::protocol::jsonrpc::{JsonRpcMessage, PARSE_ERROR, METHOD_NOT_FOUND, INVALID_REQUEST};
+use mcp_shield::protocol::jsonrpc::{
+    INVALID_REQUEST, JsonRpcMessage, METHOD_NOT_FOUND, PARSE_ERROR,
+};
 use serde_json::json;
 
 #[test]
@@ -78,20 +80,15 @@ fn test_malformed_json_returns_parse_error() {
 #[test]
 fn test_id_type_preservation() {
     // String ID
-    let msg = JsonRpcMessage::from_str(
-        r#"{"jsonrpc":"2.0","id":"req-abc-123","method":"ping"}"#,
-    )
-    .unwrap();
+    let msg = JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","id":"req-abc-123","method":"ping"}"#)
+        .unwrap();
     assert!(matches!(
         msg.id(),
         Some(RequestId::String(s)) if s == "req-abc-123"
     ));
 
     // Integer ID
-    let msg = JsonRpcMessage::from_str(
-        r#"{"jsonrpc":"2.0","id":99999,"method":"ping"}"#,
-    )
-    .unwrap();
+    let msg = JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","id":99999,"method":"ping"}"#).unwrap();
     assert!(matches!(
         msg.id(),
         Some(RequestId::Integer(n)) if *n == 99999

@@ -69,7 +69,10 @@ pub struct AuthorizationResponse {
 #[async_trait]
 pub trait CedarAuthorizer: Send + Sync {
     /// Evaluate an authorization request against the loaded policy set.
-    async fn evaluate(&self, request: &AuthorizationRequest) -> Result<AuthorizationResponse, CedarError>;
+    async fn evaluate(
+        &self,
+        request: &AuthorizationRequest,
+    ) -> Result<AuthorizationResponse, CedarError>;
 
     /// Reload the policy set from the control plane.
     async fn reload_policies(&self) -> Result<(), CedarError>;
@@ -101,7 +104,10 @@ pub struct StubAuthorizer;
 
 #[async_trait]
 impl CedarAuthorizer for StubAuthorizer {
-    async fn evaluate(&self, _request: &AuthorizationRequest) -> Result<AuthorizationResponse, CedarError> {
+    async fn evaluate(
+        &self,
+        _request: &AuthorizationRequest,
+    ) -> Result<AuthorizationResponse, CedarError> {
         Ok(AuthorizationResponse {
             decision: Decision::Allow,
             deciding_policies: vec!["stub-permit-all".to_string()],
@@ -143,7 +149,10 @@ impl CedarPolicyAuthorizer {
 
 #[async_trait]
 impl CedarAuthorizer for CedarPolicyAuthorizer {
-    async fn evaluate(&self, _request: &AuthorizationRequest) -> Result<AuthorizationResponse, CedarError> {
+    async fn evaluate(
+        &self,
+        _request: &AuthorizationRequest,
+    ) -> Result<AuthorizationResponse, CedarError> {
         // TODO (Phase 2): Implement using cedar_policy::Authorizer
         tracing::warn!(
             policy_len = self.policy_text.len(),

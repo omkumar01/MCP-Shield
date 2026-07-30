@@ -3,15 +3,15 @@
 //! Bootstraps the gateway, initializes the router and transport listeners,
 //! and serves requests over the configured transports.
 
-use axum::routing::{delete, get, post};
 use axum::Router;
+use axum::routing::{delete, get, post};
 use mcp_shield::{
+    EchoServer,
     auth::ScopeEnforcer,
     config::Config,
     gateway::{McpRouter, ToolRegistry, UpstreamProxy, UpstreamServer, UpstreamTransport},
-    telemetry::{install_prometheus_exporter, McpMetrics},
+    telemetry::{McpMetrics, install_prometheus_exporter},
     transport::{SseState, StdioTransport, StreamableHttpState},
-    EchoServer,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -148,9 +148,8 @@ async fn run_http_server(
     let streamable_router = Router::new()
         .route(
             "/mcp",
-            post(mcp_shield::transport::streamable_http::handle_mcp_post).delete(
-                mcp_shield::transport::streamable_http::handle_mcp_delete,
-            ),
+            post(mcp_shield::transport::streamable_http::handle_mcp_post)
+                .delete(mcp_shield::transport::streamable_http::handle_mcp_delete),
         )
         .with_state(streamable_state);
 
@@ -164,10 +163,7 @@ async fn run_http_server(
     if config.server.enable_sse {
         let sse_state = Arc::new(SseState::new(router.clone(), scope_enforcer.clone()));
         let sse_router = Router::new()
-            .route(
-                "/sse",
-                get(mcp_shield::transport::sse::handle_sse_get),
-            )
+            .route("/sse", get(mcp_shield::transport::sse::handle_sse_get))
             .route(
                 "/messages",
                 post(mcp_shield::transport::sse::handle_sse_post),
@@ -188,17 +184,16 @@ async fn run_http_server(
         let bind_addr = config.server.bind_addr;
         let resource_url = format!("http://{}/mcp", bind_addr);
 
-        app = app
-            .route(
-                "/.well-known/oauth-protected-resource",
-                get(move || async move {
-                    let prm = mcp_shield::auth::protected_resource_metadata(
-                        &resource_url,
-                        &[auth_server_url.clone()],
-                    );
-                    (axum::http::StatusCode::OK, axum::Json(prm))
-                }),
-            );
+        app = app.route(
+            "/.well-known/oauth-protected-resource",
+            get(move || async move {
+                let prm = mcp_shield::auth::protected_resource_metadata(
+                    &resource_url,
+                    &[auth_server_url.clone()],
+                );
+                (axum::http::StatusCode::OK, axum::Json(prm))
+            }),
+        );
         tracing::info!("OAuth PRM endpoint enabled at /.well-known/oauth-protected-resource");
     }
 

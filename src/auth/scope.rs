@@ -82,7 +82,9 @@ impl ScopeEnforcer {
             message::METHOD_INITIALIZE | message::METHOD_INITIALIZED | message::METHOD_PING => {
                 return Ok(()); // Always allowed
             }
-            message::METHOD_TOOLS_LIST | message::METHOD_RESOURCES_LIST | message::METHOD_PROMPTS_LIST => {
+            message::METHOD_TOOLS_LIST
+            | message::METHOD_RESOURCES_LIST
+            | message::METHOD_PROMPTS_LIST => {
                 // Any read scope is sufficient
                 if self.has_scope(SCOPE_TOOLS_READ)
                     || self.has_scope(SCOPE_RESOURCES_READ)
@@ -249,9 +251,7 @@ mod tests {
 
     #[test]
     fn test_per_tool_prefix_scope() {
-        let enforcer = ScopeEnforcer::new(vec![
-            format!("{}:com.example", SCOPE_TOOLS_CALL),
-        ]);
+        let enforcer = ScopeEnforcer::new(vec![format!("{}:com.example", SCOPE_TOOLS_CALL)]);
         assert!(enforcer.check_tool_access("com.example:echo").is_ok());
         assert!(enforcer.check_method("tools/call").is_err()); // global scope not granted
         assert!(enforcer.check_tool_access("com.other:search").is_err()); // different prefix
@@ -259,18 +259,14 @@ mod tests {
 
     #[test]
     fn test_exact_tool_scope() {
-        let enforcer = ScopeEnforcer::new(vec![
-            format!("{}:com.example:echo", SCOPE_TOOLS_CALL),
-        ]);
+        let enforcer = ScopeEnforcer::new(vec![format!("{}:com.example:echo", SCOPE_TOOLS_CALL)]);
         assert!(enforcer.check_tool_access("com.example:echo").is_ok());
         assert!(enforcer.check_tool_access("com.example:delete").is_err());
     }
 
     #[test]
     fn test_has_scope_prefix() {
-        let enforcer = ScopeEnforcer::new(vec![
-            "mcp:tools:call:com.example".to_string(),
-        ]);
+        let enforcer = ScopeEnforcer::new(vec!["mcp:tools:call:com.example".to_string()]);
         assert!(enforcer.has_scope_prefix("mcp:tools:call:com.example"));
         assert!(enforcer.has_scope_prefix("mcp:tools:call"));
         assert!(!enforcer.has_scope_prefix("mcp:resources"));

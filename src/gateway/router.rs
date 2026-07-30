@@ -5,7 +5,7 @@
 //! and upstream forwarding.
 
 use crate::auth::scope::ScopeEnforcer;
-use crate::error::{McpError, RequestId, METHOD_NOT_FOUND};
+use crate::error::{METHOD_NOT_FOUND, McpError, RequestId};
 use crate::gateway::proxy::UpstreamProxy;
 use crate::gateway::registry::ToolRegistry;
 use crate::protocol::jsonrpc::JsonRpcMessage;
@@ -211,13 +211,11 @@ impl McpRouter {
         id: RequestId,
         params: Option<serde_json::Value>,
     ) -> Result<JsonRpcMessage, McpError> {
-        let _params: InitializeParams = serde_json::from_value(
-            params.unwrap_or(json!({
-                "protocolVersion": MCP_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "unknown", "version": "0.0.0"}
-            })),
-        )
+        let _params: InitializeParams = serde_json::from_value(params.unwrap_or(json!({
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "unknown", "version": "0.0.0"}
+        })))
         .map_err(|e| McpError::InvalidParams(format!("Invalid initialize params: {}", e)))?;
 
         tracing::info!(
@@ -243,10 +241,7 @@ impl McpRouter {
     }
 
     /// Handle tools/list — aggregate tools from the registry.
-    async fn handle_tools_list(
-        &self,
-        id: RequestId,
-    ) -> Result<JsonRpcMessage, McpError> {
+    async fn handle_tools_list(&self, id: RequestId) -> Result<JsonRpcMessage, McpError> {
         let tools = self.registry.list_tools().await;
 
         let result = json!({
@@ -278,19 +273,18 @@ impl McpRouter {
         scope_enforcer.check_tool_access(&tool_name)?;
 
         // Look up the tool in the registry
-        let registered = self
-            .registry
-            .lookup_any(&tool_name)
-            .await?
-            .ok_or_else(|| {
-                McpError::MethodNotFound(format!("Tool '{}' not found in registry", tool_name))
-            })?;
+        let registered = self.registry.lookup_any(&tool_name).await?.ok_or_else(|| {
+            McpError::MethodNotFound(format!("Tool '{}' not found in registry", tool_name))
+        })?;
 
         // Validate arguments against the tool's inputSchema
         let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
         if arguments != json!(null) {
             let mut validator = self.schema_validator.lock().await;
-            if let Err(e) = validator.validate(&registered.tool.input_schema, &arguments).await {
+            if let Err(e) = validator
+                .validate(&registered.tool.input_schema, &arguments)
+                .await
+            {
                 tracing::warn!(
                     tool = %tool_name,
                     error = %e,
@@ -331,9 +325,10 @@ impl McpRouter {
         method: &str,
         params: Option<serde_json::Value>,
     ) -> Result<JsonRpcMessage, McpError> {
-        let server_id = self.proxy.default_server_id().await.ok_or_else(|| {
-            McpError::UpstreamError("No upstream servers configured".to_string())
-        })?;
+        let server_id =
+            self.proxy.default_server_id().await.ok_or_else(|| {
+                McpError::UpstreamError("No upstream servers configured".to_string())
+            })?;
 
         let request = JsonRpcMessage::Request {
             id,
@@ -346,8 +341,8 @@ impl McpRouter {
 }
 
 // Helper to allow async in match arms
-use std::pin::Pin;
 use futures::future::Future;
+use std::pin::Pin;
 
 fn boxed<F: Future<Output = Result<JsonRpcMessage, McpError>> + Send + 'static>(
     f: F,

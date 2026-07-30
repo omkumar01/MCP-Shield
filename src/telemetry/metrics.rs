@@ -25,13 +25,7 @@ impl McpMetrics {
     /// - `transport`: The transport ("stdio", "http", "sse")
     /// - `status`: "success" or "error"
     /// - `duration`: Request processing time
-    pub fn record_request(
-        &self,
-        method: &str,
-        transport: &str,
-        status: &str,
-        duration: Duration,
-    ) {
+    pub fn record_request(&self, method: &str, transport: &str, status: &str, duration: Duration) {
         counter!(
             "mcp_requests_total",
             "method" => method.to_string(),

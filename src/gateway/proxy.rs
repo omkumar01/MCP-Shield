@@ -6,11 +6,11 @@
 
 use crate::error::{McpError, RequestId};
 use crate::protocol::jsonrpc::JsonRpcMessage;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock, Semaphore};
+use tokio::sync::{RwLock, Semaphore, mpsc};
 
 /// An upstream MCP server configuration.
 #[derive(Debug, Clone)]
@@ -79,9 +79,7 @@ impl UpstreamProxy {
             http_client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(timeout_secs))
                 .build()
-                .unwrap_or_else(|_| {
-                    reqwest::Client::new()
-                }),
+                .unwrap_or_else(|_| reqwest::Client::new()),
             concurrency_limit: Arc::new(Semaphore::new(max_concurrent)),
             timeout: Duration::from_secs(timeout_secs),
             echo_tx: Some(echo_tx),
@@ -105,11 +103,9 @@ impl UpstreamProxy {
         message: JsonRpcMessage,
     ) -> Result<JsonRpcMessage, McpError> {
         // Acquire concurrency slot
-        let _permit = self
-            .concurrency_limit
-            .acquire()
-            .await
-            .map_err(|_| McpError::UpstreamError("Upstream concurrency limit reached".to_string()))?;
+        let _permit = self.concurrency_limit.acquire().await.map_err(|_| {
+            McpError::UpstreamError("Upstream concurrency limit reached".to_string())
+        })?;
 
         let servers = self.servers.read().await;
         let server = servers.get(server_id).ok_or_else(|| {
@@ -134,11 +130,9 @@ impl UpstreamProxy {
                 // SSE uses the same HTTP POST for client→server messages
                 self.forward_to_http(url, message).await
             }
-            UpstreamTransport::Stdio => {
-                Err(McpError::UpstreamError(
-                    "Stdio upstream transport not yet implemented".to_string(),
-                ))
-            }
+            UpstreamTransport::Stdio => Err(McpError::UpstreamError(
+                "Stdio upstream transport not yet implemented".to_string(),
+            )),
         }
     }
 
@@ -160,9 +154,7 @@ impl UpstreamProxy {
             .body(body)
             .send()
             .await
-            .map_err(|e| {
-                McpError::UpstreamError(format!("Upstream HTTP request failed: {}", e))
-            })?;
+            .map_err(|e| McpError::UpstreamError(format!("Upstream HTTP request failed: {}", e)))?;
 
         let status = response.status();
         let response_body = response.text().await.map_err(|e| {
@@ -177,20 +169,15 @@ impl UpstreamProxy {
         }
 
         // Parse the response
-        let raw: Value = serde_json::from_str(&response_body).map_err(|e| {
-            McpError::ParseError(format!("Invalid JSON from upstream: {}", e))
-        })?;
+        let raw: Value = serde_json::from_str(&response_body)
+            .map_err(|e| McpError::ParseError(format!("Invalid JSON from upstream: {}", e)))?;
 
-        JsonRpcMessage::parse(&raw).map_err(|e| {
-            McpError::UpstreamError(format!("Invalid JSON-RPC from upstream: {}", e))
-        })
+        JsonRpcMessage::parse(&raw)
+            .map_err(|e| McpError::UpstreamError(format!("Invalid JSON-RPC from upstream: {}", e)))
     }
 
     /// Forward a request to the built-in echo test server.
-    async fn forward_to_echo(
-        &self,
-        message: JsonRpcMessage,
-    ) -> Result<JsonRpcMessage, McpError> {
+    async fn forward_to_echo(&self, message: JsonRpcMessage) -> Result<JsonRpcMessage, McpError> {
         let method = message.method().unwrap_or("");
         let id = message.id().cloned().unwrap_or(RequestId::Null);
 
@@ -412,7 +399,12 @@ mod tests {
         let response = proxy.forward_to_echo(request).await.unwrap();
         match response {
             JsonRpcMessage::Success { result, .. } => {
-                assert!(result["content"][0]["text"].as_str().unwrap().contains("hello world"));
+                assert!(
+                    result["content"][0]["text"]
+                        .as_str()
+                        .unwrap()
+                        .contains("hello world")
+                );
             }
             _ => panic!("Expected Success response"),
         }

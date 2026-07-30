@@ -131,20 +131,21 @@ async fn test_prefix_format_enforcement() {
 
 #[tokio::test]
 async fn test_allowed_prefixes_filter() {
-    let registry = ToolRegistry::with_config(
-        true,
-        vec!["com.allowed".to_string()],
-    );
+    let registry = ToolRegistry::with_config(true, vec!["com.allowed".to_string()]);
 
     // Allowed prefix works
-    assert!(registry
-        .register_tool(make_tool("com.allowed:tool"), "server-1")
-        .await
-        .is_ok());
+    assert!(
+        registry
+            .register_tool(make_tool("com.allowed:tool"), "server-1")
+            .await
+            .is_ok()
+    );
 
     // Disallowed prefix is rejected
-    assert!(registry
-        .register_tool(make_tool("com.disallowed:tool"), "server-1")
-        .await
-        .is_err());
+    assert!(
+        registry
+            .register_tool(make_tool("com.disallowed:tool"), "server-1")
+            .await
+            .is_err()
+    );
 }

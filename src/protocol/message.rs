@@ -6,7 +6,7 @@
 
 use crate::error::RequestId;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The MCP protocol version supported by this gateway.
 pub const MCP_PROTOCOL_VERSION: &str = "2025-03-26";
@@ -234,20 +234,13 @@ pub struct ToolsCallResult {
 #[serde(tag = "type")]
 pub enum Content {
     #[serde(rename = "text")]
-    Text {
-        text: String,
-    },
+    Text { text: String },
 
     #[serde(rename = "image")]
-    Image {
-        data: String,
-        mime_type: String,
-    },
+    Image { data: String, mime_type: String },
 
     #[serde(rename = "resource")]
-    Resource {
-        resource: ResourceContents,
-    },
+    Resource { resource: ResourceContents },
 }
 
 // ── Resources ────────────────────────────────────────────────────────

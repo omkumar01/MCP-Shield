@@ -35,10 +35,7 @@ pub enum JsonRpcMessage {
     },
 
     /// A successful response mirrors the request's `id`.
-    Success {
-        id: RequestId,
-        result: Value,
-    },
+    Success { id: RequestId, result: Value },
 
     /// An error response mirrors the request's `id`.
     Error {
@@ -80,11 +77,17 @@ impl JsonRpcErrorObj {
 impl fmt::Display for JsonRpcMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Request { id, method, .. } => write!(f, "Request(id={:?}, method={})", id, method),
+            Self::Request { id, method, .. } => {
+                write!(f, "Request(id={:?}, method={})", id, method)
+            }
             Self::Notification { method, .. } => write!(f, "Notification(method={})", method),
             Self::Success { id, .. } => write!(f, "Success(id={:?})", id),
             Self::Error { id, error, .. } => {
-                write!(f, "Error(id={:?}, code={}, msg={})", id, error.code, error.message)
+                write!(
+                    f,
+                    "Error(id={:?}, code={}, msg={})",
+                    id, error.code, error.message
+                )
             }
             Self::Batch(msgs) => write!(f, "Batch({} messages)", msgs.len()),
         }
@@ -138,10 +141,7 @@ impl JsonRpcMessage {
         }
 
         // Check jsonrpc version field
-        let version = raw
-            .get("jsonrpc")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let version = raw.get("jsonrpc").and_then(|v| v.as_str()).unwrap_or("");
 
         if version != JSONRPC_VERSION {
             return Err(McpError::InvalidRequest(format!(
@@ -185,18 +185,14 @@ impl JsonRpcMessage {
                     ));
                 }
 
-                Ok(JsonRpcMessage::Request {
-                    id,
-                    method,
-                    params,
-                })
+                Ok(JsonRpcMessage::Request { id, method, params })
             } else {
                 Ok(JsonRpcMessage::Notification { method, params })
             }
         } else if (has_result || has_error) && has_id {
             // It's a response
-            let id: RequestId = serde_json::from_value(raw.get("id").unwrap().clone())
-                .map_err(|e| {
+            let id: RequestId =
+                serde_json::from_value(raw.get("id").unwrap().clone()).map_err(|e| {
                     McpError::InvalidRequest(format!(
                         "Invalid Request: id must be string, integer, or null: {}",
                         e
@@ -204,8 +200,8 @@ impl JsonRpcMessage {
                 })?;
 
             if let Some(error) = raw.get("error") {
-                let error_obj: JsonRpcErrorObj = serde_json::from_value(error.clone())
-                    .map_err(|e| {
+                let error_obj: JsonRpcErrorObj =
+                    serde_json::from_value(error.clone()).map_err(|e| {
                         McpError::InvalidRequest(format!(
                             "Invalid Request: malformed error object: {}",
                             e
@@ -221,8 +217,7 @@ impl JsonRpcMessage {
             }
         } else {
             Err(McpError::InvalidRequest(
-                "Invalid Request: message must be a request, notification, or response"
-                    .to_string(),
+                "Invalid Request: message must be a request, notification, or response".to_string(),
             ))
         }
     }
@@ -248,11 +243,7 @@ impl JsonRpcMessage {
     /// Convert this message to a JSON value.
     pub fn to_value(&self) -> Value {
         match self {
-            JsonRpcMessage::Request {
-                id,
-                method,
-                params,
-            } => {
+            JsonRpcMessage::Request { id, method, params } => {
                 let mut obj = json!({
                     "jsonrpc": JSONRPC_VERSION,
                     "id": id,
@@ -415,10 +406,7 @@ mod tests {
 
     #[test]
     fn test_parse_request_with_integer_id() {
-        let msg = JsonRpcMessage::from_str(
-            r#"{"jsonrpc":"2.0","id":42,"method":"ping"}"#,
-        )
-        .unwrap();
+        let msg = JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","id":42,"method":"ping"}"#).unwrap();
         match msg {
             JsonRpcMessage::Request { id, method, params } => {
                 assert_eq!(id, RequestId::Integer(42));
@@ -431,10 +419,9 @@ mod tests {
 
     #[test]
     fn test_parse_notification() {
-        let msg = JsonRpcMessage::from_str(
-            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
-        )
-        .unwrap();
+        let msg =
+            JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
+                .unwrap();
         match msg {
             JsonRpcMessage::Notification { method, params } => {
                 assert_eq!(method, "notifications/initialized");
@@ -446,10 +433,8 @@ mod tests {
 
     #[test]
     fn test_parse_success_response() {
-        let msg = JsonRpcMessage::from_str(
-            r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#,
-        )
-        .unwrap();
+        let msg =
+            JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}"#).unwrap();
         match msg {
             JsonRpcMessage::Success { id, result } => {
                 assert_eq!(id, RequestId::Integer(1));
@@ -490,9 +475,7 @@ mod tests {
 
     #[test]
     fn test_reject_null_id_in_request() {
-        let result = JsonRpcMessage::from_str(
-            r#"{"jsonrpc":"2.0","id":null,"method":"ping"}"#,
-        );
+        let result = JsonRpcMessage::from_str(r#"{"jsonrpc":"2.0","id":null,"method":"ping"}"#);
         assert!(result.is_err());
         match result.unwrap_err() {
             McpError::InvalidRequest(msg) => assert!(msg.contains("null")),
@@ -502,9 +485,7 @@ mod tests {
 
     #[test]
     fn test_reject_invalid_jsonrpc_version() {
-        let result = JsonRpcMessage::from_str(
-            r#"{"jsonrpc":"1.0","id":1,"method":"ping"}"#,
-        );
+        let result = JsonRpcMessage::from_str(r#"{"jsonrpc":"1.0","id":1,"method":"ping"}"#);
         assert!(result.is_err());
     }
 
@@ -584,6 +565,9 @@ mod tests {
             method: "tools/call".to_string(),
             params: None,
         };
-        assert_eq!(format!("{}", msg), "Request(id=Integer(42), method=tools/call)");
+        assert_eq!(
+            format!("{}", msg),
+            "Request(id=Integer(42), method=tools/call)"
+        );
     }
 }
