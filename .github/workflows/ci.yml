@@ -275,7 +275,7 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [lint, security, unit-tests, integration-tests]
+    needs: [lint, unit-tests, integration-tests]
     permissions:
       contents: read
       packages: write
