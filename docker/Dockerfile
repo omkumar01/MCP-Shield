@@ -57,7 +57,7 @@ RUN mkdir -p src && \
 # Use --locked for reproducible builds
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release || true
+    cargo build --release --offline || true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 2: Build Application
@@ -89,7 +89,7 @@ COPY policies/ ./policies/
 # Use BuildKit cache mounts for faster incremental builds
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release && \
+    cargo build --release --offline && \
     BIN=$(find target/release -maxdepth 1 -type f \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) | head -n 1) && \
     test -n "$BIN" && \
     cp "$BIN" /build/mcp-shield && \
