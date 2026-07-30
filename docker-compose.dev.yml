@@ -1,0 +1,320 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Docker Compose - Development Overrides                           │
+# │                                                                              │
+# │ Usage:                                                                       │
+# │   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d      │
+# │                                                                              │
+# │ Features:                                                                    │
+# │   - Source code hot-reload via bind mounts                                   │
+# │   - Debug ports exposed                                                      │
+# │   - Reduced resource limits                                                  │
+# │   - Development-friendly settings                                            │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+version: '3.9'
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MCP-Shield Gateway (Development Mode)
+  # ─────────────────────────────────────────────────────────────────────────────
+  mcp-shield:
+    build:
+      target: builder  # Use builder stage for development (includes tools)
+    image: mcpshield/mcp-shield:dev
+    container_name: mcp-shield-gateway-dev
+    user: "65532:65532"
+    environment:
+      # Development settings
+      RUST_LOG: debug
+      RUST_BACKTRACE: full
+      MCP_SHIELD_SERVER_LOG_LEVEL: debug
+      MCP_SHIELD_SERVER_JSON_LOGGING: "false"
+      
+      # Auth disabled for easier testing
+      MCP_SHIELD_AUTH_ENABLED: "false"
+      
+      # Registry relaxed for development
+      MCP_SHIELD_REGISTRY_ENFORCE_PREFIX: "true"
+      MCP_SHIELD_REGISTRY_ALLOWED_PREFIXES: "com.local,io.local,test"
+      
+      # Relaxed proxy settings
+      MCP_SHIELD_PROXY_REQUEST_TIMEOUT_SECS: 60
+      MCP_SHIELD_PROXY_MAX_CONCURRENT: 200
+      
+      # Enable all transports for testing
+      MCP_SHIELD_ENABLE_HTTP: "true"
+      MCP_SHIELD_ENABLE_SSE: "true"
+      MCP_SHIELD_ENABLE_STDIO: "false"
+    ports:
+      - "8080:8080"   # MCP HTTP/SSE
+      - "9090:9090"   # Prometheus metrics
+      - "9091:9091"   # Health checks
+      - "5678:5678"   # Debug port (DAP/Rust)
+    volumes:
+      # Bind mount source for hot reload
+      - ./src:/build/src:ro
+      - ./Cargo.toml:/build/Cargo.toml:ro
+      - ./Cargo.lock:/build/Cargo.lock:ro
+      - ./config:/etc/mcp-shield/config:ro
+      - ./policies:/etc/mcp-shield/policies:ro
+      # Cache cargo registry and target
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-target:/build/target
+    command: >
+      sh -c "
+        cargo watch -x 'build --release' -x 'run -- --config /etc/mcp-shield/config/default.toml'
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    cap_add:
+      - SYS_PTRACE  # For debugging
+    security_opt:
+      - seccomp:unconfined  # For debugging
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PostgreSQL (Development - No Persistence)
+  # ─────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcp-shield-postgres-dev
+    environment:
+      POSTGRES_DB: mcp_shield
+      POSTGRES_USER: mcp_shield
+      POSTGRES_PASSWORD: dev
+      POSTGRES_INITDB_ARGS: "--auth-host=trust"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    command: >
+      postgres
+      -c log_statement=all
+      -c log_destination=stderr
+      -c log_min_duration_statement=0
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Redis (Development - No Persistence)
+  # ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-shield-redis-dev
+    command: >
+      redis-server
+      --requirepass dev
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --appendonly no
+      --loglevel debug
+    ports:
+      - "6379:6379"
+    tmpfs:
+      - /data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # OpenTelemetry Collector (Development)
+  # ─────────────────────────────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    container_name: mcp-shield-otel-collector-dev
+    command:
+      - "--config=/etc/otel-collector/config-dev.yaml"
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+      - "55679:55679" # zPages
+    volumes:
+      - ./docker/otel-collector/config-dev.yaml:/etc/otel-collector/config-dev.yaml:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Prometheus (Development - Short Retention)
+  # ─────────────────────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mcp-shield-prometheus-dev
+    command:
+      - "--config.file=/etc/prometheus/prometheus-dev.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--storage.tsdb.retention.size=2GB"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus-dev.yml:/etc/prometheus/prometheus-dev.yml:ro
+      - ./docker/prometheus/rules:/etc/prometheus/rules:ro
+    tmpfs:
+      - /prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Grafana (Development - No Persistence)
+  # ─────────────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: mcp-shield-grafana-dev
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_LOG_LEVEL: debug
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/dashboards/mcp-shield:/var/lib/grafana/dashboards/mcp-shield:ro
+    tmpfs:
+      - /var/lib/grafana
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Loki (Development - In-Memory)
+  # ─────────────────────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: mcp-shield-loki-dev
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./docker/loki/local-config-dev.yaml:/etc/loki/local-config.yaml:ro
+    tmpfs:
+      - /loki
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Promtail (Development)
+  # ─────────────────────────────────────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: mcp-shield-promtail-dev
+    command:
+      - "-config.file=/etc/promtail/config-dev.yml"
+    volumes:
+      - ./docker/promtail/config-dev.yml:/etc/promtail/config-dev.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Jaeger (Development - In-Memory)
+  # ─────────────────────────────────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: mcp-shield-jaeger-dev
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "true"
+      LOG_LEVEL: debug
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "14268:14268"
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    tmpfs:
+      - /var/lib/jaeger
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MCP Echo Server (Development)
+  # ─────────────────────────────────────────────────────────────────────────────
+  mcp-echo:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: builder
+    image: mcpshield/mcp-echo:dev
+    container_name: mcp-shield-echo-dev
+    user: "65532:65532"
+    environment:
+      RUST_LOG: debug
+      MCP_ECHO_BIND_ADDR: 0.0.0.0:8080
+    ports:
+      - "8081:8080"
+    command: cargo run --bin mcp-echo
+    volumes:
+      - ./src:/build/src:ro
+      - ./Cargo.toml:/build/Cargo.toml:ro
+      - cargo-target:/build/target
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes (Development - Named for Caching)
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  cargo-registry:
+    name: mcp-shield-cargo-registry-dev
+  cargo-target:
+    name: mcp-shield-cargo-target-dev
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Networks (Override for Development)
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  mcp-shield-frontend:
+    external: false
+  mcp-shield-backend:
+    external: false
+  mcp-shield-observability:
+    external: false

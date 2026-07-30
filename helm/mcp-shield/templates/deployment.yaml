@@ -1,9 +1,17 @@
+{{/*
+  Deployment for MCP-Shield Gateway
+*/}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "mcp-shield.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "mcp-shield.labels" . | nindent 4 }}
+  {{- with .Values.global.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -11,27 +19,78 @@ spec:
   selector:
     matchLabels:
       {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      {{- toYaml .Values.updateStrategy.rollingUpdate | nindent 6 }}
+    {{- end }}
   template:
     metadata:
+      labels:
+        {{- include "mcp-shield.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      labels:
-        {{- include "mcp-shield.selectorLabels" . | nindent 8 }}
+      {{- with .Values.global.annotations }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with include "mcp-shield.imagePullSecrets" . }}
+      imagePullSecrets:
+        {{- . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ include "mcp-shield.serviceAccountName" . }}
+      {{- with .Values.global.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          {{- with .Values.image.digest }}
+          imageDigest: {{ . }}
+          {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --config
@@ -43,11 +102,33 @@ spec:
             - name: metrics
               containerPort: 9090
               protocol: TCP
+            - name: health
+              containerPort: 9091
+              protocol: TCP
+          {{- with .Values.service.additionalPorts }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: MCP_SHIELD_CONFIG
               value: /etc/mcp-shield/config/default.toml
             - name: RUST_LOG
               value: {{ .Values.config.server.log_level | quote }}
+            - name: RUST_BACKTRACE
+              value: "1"
+            - name: OTEL_SERVICE_NAME
+              value: {{ include "mcp-shield.fullname" . }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name={{ include \"mcp-shield.fullname\" . }},deployment.environment={{ .Values.global.environment }},kubernetes.namespace={{ .Release.Namespace }},kubernetes.pod.name=$(POD_NAME)"
+          {{- with .Values.env }}
+          {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            {{- with .Values.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            - configMapRef:
+                name: {{ include "mcp-shield.fullname" . }}-config
+                optional: true
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -56,35 +137,45 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: config
-              mountPath: /etc/mcp-shield/config
-              readOnly: true
-            - name: policies
-              mountPath: /etc/mcp-shield/policies
-              readOnly: true
-            - name: tmp
-              mountPath: /tmp
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- with .Values.extraContainers }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         - name: config
           configMap:
             name: {{ include "mcp-shield.fullname" . }}-config
+            items:
+              - key: default.toml
+                path: default.toml
         - name: policies
           configMap:
             name: {{ include "mcp-shield.fullname" . }}-policies
+            items:
+              - key: default.cedar
+                path: default.cedar
         - name: tmp
-          emptyDir: {}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: data
+          emptyDir:
+            sizeLimit: 500Mi
+      {{- with .Values.global.dnsConfig }}
+      dnsConfig:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
+      {{- with .Values.global.dnsPolicy }}
+      dnsPolicy: {{ . }}
       {{- end }}

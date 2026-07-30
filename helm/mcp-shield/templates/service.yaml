@@ -1,22 +1,48 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Service                                                           │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "mcp-shield.fullname" . }}
   labels:
     {{- include "mcp-shield.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
-      name: http
-    - port: {{ .Values.service.metricsPort }}
-      targetPort: metrics
+      appProtocol: http
+    - name: metrics
+      port: {{ .Values.service.metricsPort }}
+      targetPort: {{ .Values.service.metricsTargetPort }}
       protocol: TCP
-      name: metrics
+      appProtocol: http
+    {{- with .Values.service.additionalPorts }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
   selector:
     {{- include "mcp-shield.selectorLabels" . | nindent 4 }}
+  {{- with .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- if .Values.service.internal }}
+  internal: {{ .Values.service.internal }}
+  {{- end }}
+  {{- end }}
 ---
 {{- if .Values.serviceAccount.create }}
 apiVersion: v1

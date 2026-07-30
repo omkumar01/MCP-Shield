@@ -1,37 +1,213 @@
-# Development values for MCP-Shield
-# Use with: helm install mcp-shield ./helm/mcp-shield -f helm/mcp-shield/values-dev.yaml
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Helm Chart - Development Values                                   │
+# │                                                                              │
+# │ Development-friendly configuration.                                          │
+# │ Use with: helm install mcp-shield ./helm/mcp-shield -f values-dev.yaml      │
+# └──────────────────────────────────────────────────────────────────────────────┘
 
-replicaCount: 1
+# ─────────────────────────────────────────────────────────────────────────────
+# Global Settings
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  environment: development
+  labels:
+    environment: development
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Image (Development)
+# ─────────────────────────────────────────────────────────────────────────────
 image:
-  repository: mcpshield/mcp-shield
+  registry: docker.io
+  repository: mcp-shield/mcp-shield
   tag: dev
   pullPolicy: Never
 
-service:
-  type: NodePort
-  port: 8080
+# ─────────────────────────────────────────────────────────────────────────────
+# Replicas (Single for Development)
+# ─────────────────────────────────────────────────────────────────────────────
+replicaCount: 1
 
+autoscaling:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resources (Minimal for Development)
+# ─────────────────────────────────────────────────────────────────────────────
+resources:
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Health Checks (Faster for Development)
+# ─────────────────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: health
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /livez
+    port: health
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Disruption Budget (Disabled for Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Application Configuration (Development)
+# ─────────────────────────────────────────────────────────────────────────────
 config:
   server:
+    bind_addr: "0.0.0.0:8080"
     log_level: "debug"
     json_logging: false
-    bind_addr: "0.0.0.0:8080"
     enable_http: true
     enable_sse: true
     enable_stdio: false
-
+    request_timeout_secs: 60
+    max_request_size: 10485760
+    server_info:
+      name: "mcp-shield-dev"
+      version: "0.1.0-dev"
+  
   auth:
     enabled: false
-
+    # jwt_secret: "dev-secret-change-in-production"
+    # jwks_url: ""
+    issuer: "https://auth.local"
+    required_scopes:
+      - "mcp:tools:read"
+      - "mcp:tools:call"
+  
   registry:
     enforce_prefix_format: true
-    allowed_prefixes: []
+    allowed_prefixes:
+      - "com.local"
+      - "io.local"
+      - "test"
+    max_tools_per_server: 100
+  
+  proxy:
+    request_timeout_secs: 60
+    max_concurrent_requests: 200
+    upstream_tls_verify: false
+    upstream_url: "http://mcp-echo:8080"
+  
+  telemetry:
+    metrics_path: "/metrics"
+    metrics_addr: "0.0.0.0:9090"
+    health_addr: "0.0.0.0:9091"
+    otlp_endpoint: "http://otel-collector:4317"
+    otlp_insecure: true
+    kafka_bootstrap_servers: []
+    kafka_topic: "mcp-shield-audit"
+  
+  rate_limit:
+    enabled: false
+    requests_per_minute: 10000
+    burst: 1000
+  
+  cors:
+    enabled: true
+    allowed_origins:
+      - "*"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "OPTIONS"
+    allowed_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "Mcp-Session-Id"
+    max_age: 86400
+  
+  websocket:
+    enabled: false
+  
+  features:
+    cedar_policy_engine: false
+    session_context_locking: false
+    ecpa_guardrails: false
+    egress_sanitization: false
+    postgresql_control_plane: false
+    redis_session_store: false
 
-resources:
-  limits:
-    cpu: 500m
-    memory: 256Mi
-  requests:
-    cpu: 100m
-    memory: 64Mi
+# ─────────────────────────────────────────────────────────────────────────────
+# Ingress (Disabled for Local Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+ingress:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Network Policies (Disabled for Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC (Minimal for Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+  clusterRole:
+    create: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Monitoring (Simplified for Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  namespace: ""
+  interval: 15s
+
+prometheusRules:
+  enabled: false
+
+grafanaDashboard:
+  enabled: true
+  namespace: ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# External Dependencies (Disabled for Dev)
+# ─────────────────────────────────────────────────────────────────────────────
+postgresql:
+  enabled: false
+
+redis:
+  enabled: false
+
+kafka:
+  enabled: false
+
+clickhouse:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────────────────────────────────────────
+tests:
+  enabled: true

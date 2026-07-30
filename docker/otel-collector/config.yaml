@@ -1,0 +1,227 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ OpenTelemetry Collector Configuration                                        │
+# │                                                                              │
+# │ Collects traces, metrics, and logs from MCP-Shield and exports to           │
+# │ Prometheus, Loki, and Jaeger.                                               │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+receivers:
+  # OTLP receiver for application telemetry
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 64
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "*"
+  
+  # Prometheus receiver for scraping metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          static_configs:
+            - targets: ['localhost:8888']
+        - job_name: 'mcp-shield'
+          static_configs:
+            - targets: ['mcp-shield:9090']
+              labels:
+                service: 'mcp-shield'
+        - job_name: 'mcp-echo'
+          static_configs:
+            - targets: ['mcp-echo:8080']
+              labels:
+                service: 'mcp-echo'
+        - job_name: 'postgres'
+          static_configs:
+            - targets: ['postgres:5432']
+              labels:
+                service: 'postgres'
+        - job_name: 'redis'
+          static_configs:
+            - targets: ['redis:6379']
+              labels:
+                service: 'redis'
+
+  # Host metrics
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      memory: {}
+      disk: {}
+      network: {}
+      load: {}
+      filesystem: {}
+
+  # Container metrics
+  dockerstats:
+    endpoint: "unix:///var/run/docker.sock"
+    collection_interval: 30s
+
+processors:
+  # Batch processor for efficiency
+  batch:
+    timeout: 10s
+    send_batch_max_size: 1000
+    send_batch_size: 500
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource detection
+  resource:
+    attributes:
+      - key: service.name
+        value: "mcp-shield"
+        action: upsert
+      - key: service.version
+        value: "${env:MCP_SHIELD_VERSION:-dev}"
+        action: upsert
+      - key: deployment.environment
+        value: "${env:DEPLOYMENT_ENVIRONMENT:-local}"
+        action: upsert
+
+  # Transform processor for attribute manipulation
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["service.namespace"], "mcp-shield")
+    metric_statements:
+      - context: datapoint
+        statements:
+          - set(attributes["service.namespace"], "mcp-shield")
+
+  # Filter processor for sampling
+  filter:
+    traces:
+      span:
+        - 'attributes["http.status_code"] >= 500'  # Keep errors
+        - 'attributes["error"] == true'             # Keep errors
+        - 'attributes["mcp.method"] != "ping"'       # Filter health checks
+    metrics:
+      include:
+        match_type: regexp
+        metric_names:
+          - "mcp_.*"
+          - "http_.*"
+          - "grpc_.*"
+          - "process_.*"
+          - "go_.*"
+
+  # Tail sampling for traces
+  tail_sampling:
+    decision_wait: 30s
+    num_traces: 50000
+    expected_new_traces_per_sec: 1000
+    policies:
+      - name: always-sample-errors
+        type: string_attribute
+        string_attribute:
+          key: "error"
+          values: ["true"]
+      - name: always-sample-mcp-errors
+        type: string_attribute
+        string_attribute:
+          key: "mcp.error_code"
+          values: ["*"]
+      - name: sample-mcp-requests
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+      - name: sample-slow-requests
+        type: latency
+        latency:
+          threshold_ms: 1000
+
+exporters:
+  # Prometheus exporter for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8888"
+    namespace: "mcp_shield"
+    const_labels:
+      cluster: "local"
+      environment: "${env:DEPLOYMENT_ENVIRONMENT:-local}"
+
+  # Prometheus remote write (for production)
+  prometheusremotewrite:
+    endpoint: "${env:PROMETHEUS_REMOTE_WRITE_URL}"
+    headers:
+      Authorization: "Bearer ${env:PROMETHEUS_REMOTE_WRITE_TOKEN}"
+    tls:
+      insecure: false
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Loki exporter for logs
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+    labels:
+      attributes:
+        - service.name
+        - service.namespace
+        - deployment.environment
+    tenant_id: "mcp-shield"
+
+  # Jaeger exporter for traces
+  jaeger:
+    endpoint: "jaeger:14250"
+    tls:
+      insecure: true
+
+  # OTLP exporter (for production backends)
+  otlp:
+    endpoint: "${env:OTEL_EXPORTER_OTLP_ENDPOINT}"
+    headers:
+      Authorization: "Bearer ${env:OTEL_EXPORTER_OTLP_TOKEN}"
+    tls:
+      insecure: false
+
+  # Debug exporter
+  debug:
+    verbosity: detailed
+    sampling_initial: 10
+    sampling_thereafter: 100
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # pprof extension for profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zPages extension
+  zpages:
+    endpoint: 0.0.0.0:55681
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, transform, filter, batch, tail_sampling]
+      exporters: [jaeger, debug]
+    metrics:
+      receivers: [otlp, prometheus, hostmetrics, dockerstats]
+      processors: [memory_limiter, resource, transform, filter, batch]
+      exporters: [prometheus, debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, transform, filter, batch]
+      exporters: [loki, debug]
+  telemetry:
+    logs:
+      level: info
+      encoding: json
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

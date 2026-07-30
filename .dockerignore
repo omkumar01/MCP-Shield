@@ -1,208 +1,165 @@
 # ┌──────────────────────────────────────────────────────────────────────────────┐
-# │ MCP-Shield .gitignore                                                        │
+# │ MCP-Shield .dockerignore                                                     │
 # │                                                                              │
-# │ Comprehensive ignore patterns for Rust, Docker, Kubernetes, Helm, CI/CD     │
+# │ Optimized for minimal build context and secure builds                       │
 # └──────────────────────────────────────────────────────────────────────────────┘
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Rust / Cargo
+# Build Artifacts & Cache
 # ─────────────────────────────────────────────────────────────────────────────
-/target/
-**/target/
+target/
 Cargo.lock
+**/target/
 **/Cargo.lock
 
-# Rust analyzer
-rust-analyzer.toml
+# ─────────────────────────────────────────────────────────────────────────────
+# Version Control
+# ─────────────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+.gitlab/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Build Artifacts
+# IDE & Editor Files
 # ─────────────────────────────────────────────────────────────────────────────
-*.exe
-*.dll
-*.so
-*.dylib
-*.a
-*.lib
-*.o
-*.obj
-*.rlib
-*.rmeta
-
-# ─────────────────────────────────────────────────────────────────────────────
-# IDE / Editor
-# ─────────────────────────────────────────────────────────────────────────────
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+.vscode/
+.idea/
 *.sublime-project
 *.sublime-workspace
-.vs/
-*.code-workspace
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OS Generated
+# Documentation (not needed in build)
 # ─────────────────────────────────────────────────────────────────────────────
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+!CONTRIBUTING.md
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Environment & Secrets (NEVER COMMIT)
+# Test & Coverage
 # ─────────────────────────────────────────────────────────────────────────────
-.env
-.env.*
-!.env.example
-!.env.template
-*.secret
-*.password
-*.key
-*.pem
-*.crt
-*.p12
-*.pfx
-*.jks
-secrets/
-credentials/
-*.env.local
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Logs & Coverage
-# ─────────────────────────────────────────────────────────────────────────────
-*.log
-logs/
+tests/
+**/tests/
 coverage/
 *.profraw
 *.profdata
-*.lcov
-coverage-report/
-target/coverage/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Temporary & Cache
+# CI/CD Configuration (not needed in build)
 # ─────────────────────────────────────────────────────────────────────────────
-tmp/
-temp/
-*.tmp
-*.temp
-.cache/
-*.cache
+.github/
+.gitlab/
+.circleci/
+.travis.yml
+.appveyor.yml
+Jenkinsfile
+*.yml
+*.yaml
+!.github/workflows/ci.yml
+!.github/workflows/release.yml
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Docker
 # ─────────────────────────────────────────────────────────────────────────────
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
 .docker/
-docker-compose.override.yml
-docker-compose.*.local.yml
-.dockerignore.local
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Kubernetes / Helm
+# Kubernetes / Helm (not needed in build)
 # ─────────────────────────────────────────────────────────────────────────────
-helm/mcp-shield/charts/
-helm/mcp-shield/Chart.lock
-helm/mcp-shield/*.tgz
-k8s/overlays/*/kustomization.yaml.local
+helm/
+k8s/
+kubernetes/
 *.kubeconfig
 .kube/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CI/CD Artifacts
+# Secrets & Credentials (NEVER include in build)
 # ─────────────────────────────────────────────────────────────────────────────
-.github/workflows/*.yml.bak
-act_artifacts/
-*.sarif
-trivy-*.json
-grype-*.json
-gitleaks-*.json
-audit-report.json
-deny-report.json
-sbom.*.json
-sbom.*.txt
-*.sbom.json
-*.cyclonedx.json
-*.spdx.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+*.env
+.env.*
+!.env.example
+!.env.template
+secrets/
+credentials/
+*.secret
+*.password
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Documentation Build
+# Logs & Temporary Files
 # ─────────────────────────────────────────────────────────────────────────────
-docs/_build/
-docs/.vitepress/dist/
-*.pdf
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.temp
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Database
+# OS Generated Files
 # ─────────────────────────────────────────────────────────────────────────────
-*.db
-*.sqlite
-*.sqlite3
-*.sqlcipher
-postgres-data/
-redis-data/
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test Results
+# Build Scripts (not needed in final image)
 # ─────────────────────────────────────────────────────────────────────────────
-test-results/
-target/test-results/
-*.junit.xml
-*.test.xml
+scripts/
+Makefile
+makefile
+*.sh
+!docker/entrypoint/entrypoint.sh
+!docker/healthcheck/healthcheck.sh
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Benchmarks
+# Rust Specific
 # ─────────────────────────────────────────────────────────────────────────────
-benches/target/
+rust-toolchain
+rust-toolchain.toml
+rustfmt.toml
+clippy.toml
+*.rs.bk
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Benchmarks & Profiling
+# ─────────────────────────────────────────────────────────────────────────────
+benches/
 .criterion/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Release Artifacts
+# Configuration Templates (use .template files instead)
 # ─────────────────────────────────────────────────────────────────────────────
-dist/
-release/
-*.tar.gz
-*.tgz
-*.zip
-CHANGELOG.md.bak
+config/*.toml
+!config/default.toml.template
+!config/*.toml.example
+policies/*.cedar
+!policies/default.cedar.template
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Language Specific
+# License & Legal (keep in source, not in image)
 # ─────────────────────────────────────────────────────────────────────────────
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-.coverage
-htmlcov/
-.venv/
-venv/
-env/
-pip-wheel-metadata/
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-store/
-
-# Go
-vendor/
-go.sum
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Misc
-# ─────────────────────────────────────────────────────────────────────────────
-*.bak
-*.backup
-*.orig
-*.rej
-#*#
-.~*
+LICENSE*
+COPYING*
+NOTICE*

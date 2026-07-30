@@ -1,0 +1,271 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield RBAC Configuration                                                │
+# │                                                                              │
+# │ Implements least-privilege access for the MCP-Shield service account.       │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.rbac.create }}
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# Role (Namespace-scoped permissions)
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+rules:
+  # ConfigMap access for configuration
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+    resourceNames:
+      - {{ include "mcp-shield.fullname" . }}-config
+      - {{ include "mcp-shield.fullname" . }}-policies
+  # Secret access for credentials (if not using External Secrets)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+    resourceNames:
+      - {{ include "mcp-shield.fullname" . }}-secrets
+  # Pod access for self-inspection
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+    resourceNames:
+      - {{ include "mcp-shield.fullname" . }}-*
+  # Events for health reporting
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Endpoints for service discovery
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch"]
+  # Services for upstream discovery
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# RoleBinding (Namespace-scoped)
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-shield.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "mcp-shield.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+{{- if .Values.rbac.clusterRole.create }}
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# ClusterRole (Cluster-scoped permissions - for cross-namespace operations)
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+rules:
+  # Nodes for topology spread constraints
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  # Ingress for auto-configuration (if enabled)
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "ingressclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Certificate management (if using cert-manager)
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "issuers", "clusterissuers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Custom resources for MCP-Shield (if CRDs are installed)
+  - apiGroups: ["mcp-shield.io"]
+    resources: ["*"]
+    verbs: ["*"]
+  # Prometheus ServiceMonitor/PodMonitor
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors", "podmonitors", "prometheusrules"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# ClusterRoleBinding
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mcp-shield.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "mcp-shield.fullname" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Pod Security Policy (Deprecated in 1.25, use Pod Security Standards)        │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.podSecurityPolicy.create }}
+{{- if .Capabilities.APIVersions.Has "policy/v1beta1/PodSecurityPolicy" }}
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: "runtime/default"
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: "runtime/default"
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: "runtime/default"
+    apparmor.security.beta.kubernetes.io/defaultProfileName: "runtime/default"
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - "configMap"
+    - "emptyDir"
+    - "projected"
+    - "secret"
+    - "downwardAPI"
+    - "persistentVolumeClaim"
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: "MustRunAs"
+    ranges:
+      - min: 65532
+        max: 65532
+  runAsGroup:
+    rule: "MustRunAs"
+    ranges:
+      - min: 65532
+        max: 65532
+  fsGroup:
+    rule: "MustRunAs"
+    ranges:
+      - min: 65532
+        max: 65532
+  readOnlyRootFilesystem: true
+  seccomp:
+    defaultProfileName: "runtime/default"
+  allowedSeccompProfiles:
+    - "*"
+{{- end }}
+{{- end }}
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Pod Security Standards (Kyverno/Admission Controller policies)              │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.podSecurityStandards.enabled }}
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-pod-security
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-non-root
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "{{ .Release.Namespace }}"
+      validate:
+        message: "Containers must run as non-root user"
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 65532
+              runAsGroup: 65532
+              fsGroup: 65532
+    - name: drop-all-capabilities
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "{{ .Release.Namespace }}"
+      validate:
+        message: "All capabilities must be dropped"
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  capabilities:
+                    drop: ["ALL"]
+    - name: read-only-root-filesystem
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "{{ .Release.Namespace }}"
+      validate:
+        message: "Root filesystem must be read-only"
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true
+    - name: seccomp-profile
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "{{ .Release.Namespace }}"
+      validate:
+        message: "Seccomp profile must be set to RuntimeDefault"
+        pattern:
+          spec:
+            securityContext:
+              seccompProfile:
+                type: "RuntimeDefault"
+    - name: no-host-namespaces
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+              namespaces:
+                - "{{ .Release.Namespace }}"
+      validate:
+        message: "Host namespaces are not allowed"
+        deny:
+          conditions:
+            all:
+              - key: "{{ .spec.hostNetwork }}"
+                operator: Exists
+              - key: "{{ .spec.hostPID }}"
+                operator: Exists
+              - key: "{{ .spec.hostIPC }}"
+                operator: Exists
+{{- end }}

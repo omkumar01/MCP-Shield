@@ -1,14 +1,25 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Helm Chart                                                        │
+# │                                                                              │
+# │ Production-ready Helm chart for deploying MCP-Shield on Kubernetes.         │
+# │ Supports EKS, GKE, AKS, OpenShift, k3s, Minikube, Kind, and more.          │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
 apiVersion: v2
 name: mcp-shield
 description: Layer 7 protocol-aware security gateway for the Model Context Protocol (MCP)
 type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the appVersion.
 version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are expected to follow
+# Semantic Versioning (https://semver.org/)
 appVersion: "0.1.0"
-home: https://github.com/mcp-shield/mcp-shield
-sources:
-  - https://github.com/mcp-shield/mcp-shield
-maintainers:
-  - name: MCP-Shield Team
+
+# Chart keywords
 keywords:
   - mcp
   - security
@@ -16,3 +27,40 @@ keywords:
   - json-rpc
   - oauth
   - cedar
+  - model-context-protocol
+
+# Chart homepage
+home: https://github.com/mcp-shield/mcp-shield
+
+# Sources
+sources:
+  - https://github.com/mcp-shield/mcp-shield
+
+# Maintainers
+maintainers:
+  - name: MCP-Shield Team
+    email: team@mcp-shield.io
+    url: https://github.com/mcp-shield
+
+# Icon
+icon: https://raw.githubusercontent.com/mcp-shield/mcp-shield/main/docs/assets/logo.png
+
+# Annotations
+annotations:
+  "artifacthub.io/category": security
+  "artifacthub.io/license": PolyForm-Noncommercial-1.0.0
+  "artifacthub.io/prerelease": "false"
+  "artifacthub.io/containsSecurityUpdates": "true"
+  "artifacthub.io/links": |
+    - name: Documentation
+      url: https://github.com/mcp-shield/mcp-shield/blob/main/docs/README.md
+    - name: Changelog
+      url: https://github.com/mcp-shield/mcp-shield/blob/main/CHANGELOG.md
+    - name: Source Code
+      url: https://github.com/mcp-shield/mcp-shield
+    - name: Issue Tracker
+      url: https://github.com/mcp-shield/mcp-shield/issues
+
+# KubeVersion constraints
+kubeVersion: ">= 1.28.0-0"
+apiVersion: v2

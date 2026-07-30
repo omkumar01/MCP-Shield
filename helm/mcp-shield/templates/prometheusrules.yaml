@@ -1,0 +1,47 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield PrometheusRules (Alerting Rules)                                  │
+# │                                                                              │
+# │ Alerting rules for MCP-Shield gateway health, performance, and business     │
+# │ metrics.                                                                     │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  namespace: {{ .Values.prometheusRules.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRules.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    {{- range .Values.prometheusRules.groups }}
+    - name: {{ .name }}
+      interval: {{ .interval | default "30s" }}
+      rules:
+        {{- range .rules }}
+        - alert: {{ .alert }}
+          expr: {{ .expr }}
+          for: {{ .for | default "5m" }}
+          labels:
+            severity: {{ .labels.severity | default "warning" }}
+            service: mcp-shield
+            component: {{ .labels.component | default "gateway" }}
+            {{- with .labels.additional }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          annotations:
+            summary: {{ .annotations.summary | quote }}
+            description: {{ .annotations.description | quote }}
+            {{- with .annotations.runbook_url }}
+            runbook_url: {{ . }}
+            {{- end }}
+            {{- with .annotations.additional }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- end }}
+    {{- end }}
+{{- end }}

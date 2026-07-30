@@ -1,0 +1,567 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Docker Compose - Local Development & Testing                      │
+# │                                                                              │
+# │ Services:                                                                    │
+# │   - mcp-shield: MCP Security Gateway (main service)                         │
+# │   - postgresql: PostgreSQL database (control plane, Phase 4)                │
+# │   - redis: Redis cache (session storage, rate limiting)                     │
+# │   - otel-collector: OpenTelemetry Collector (traces, metrics, logs)         │
+# │   - prometheus: Prometheus metrics collection                                │
+# │   - grafana: Grafana dashboards                                              │
+# │   - loki: Loki log aggregation                                               │
+# │   - promtail: Loki log shipper                                               │
+# │   - jaeger: Jaeger distributed tracing                                       │
+# │   - mcp-echo: Built-in echo MCP server for testing                          │
+# │                                                                              │
+# │ Usage:                                                                       │
+# │   docker-compose up -d                    # Start all services              │
+# │   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d     # Dev overrides
+# │   docker-compose logs -f mcp-shield       # View gateway logs               │
+# │   docker-compose down -v                  # Stop and remove volumes         │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  mcp-shield-frontend:
+    name: mcp-shield-frontend
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
+  
+  mcp-shield-backend:
+    name: mcp-shield-backend
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.1.0/24
+          gateway: 172.28.1.1
+
+  mcp-shield-observability:
+    name: mcp-shield-observability
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.2.0/24
+          gateway: 172.28.2.1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes (Persistent Data)
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  # Database
+  mcp-shield-postgres-data:
+    name: mcp-shield-postgres-data
+    driver: local
+  
+  # Redis
+  mcp-shield-redis-data:
+    name: mcp-shield-redis-data
+    driver: local
+  
+  # Prometheus
+  mcp-shield-prometheus-data:
+    name: mcp-shield-prometheus-data
+    driver: local
+  
+  # Grafana
+  mcp-shield-grafana-data:
+    name: mcp-shield-grafana-data
+    driver: local
+  
+  # Loki
+  mcp-shield-loki-data:
+    name: mcp-shield-loki-data
+    driver: local
+  
+  # Jaeger
+  mcp-shield-jaeger-data:
+    name: mcp-shield-jaeger-data
+    driver: local
+  
+  # MCP-Shield config & policies
+  mcp-shield-config:
+    name: mcp-shield-config
+    driver: local
+  
+  mcp-shield-policies:
+    name: mcp-shield-policies
+    driver: local
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Configuration (Extensions for Reuse)
+# ─────────────────────────────────────────────────────────────────────────────
+x-common-environment: &common-environment
+  # Application
+  RUST_LOG: ${MCP_SHIELD_LOG_LEVEL:-info}
+  RUST_BACKTRACE: ${MCP_SHIELD_BACKTRACE:-1}
+  MCP_SHIELD_CONFIG: /etc/mcp-shield/config/default.toml
+  MCP_SHIELD_POLICIES_DIR: /etc/mcp-shield/policies
+  
+  # OpenTelemetry
+  OTEL_SERVICE_NAME: mcp-shield
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+  OTEL_RESOURCE_ATTRIBUTES: service.name=mcp-shield,deployment.environment=local
+
+  # Feature flags
+  MCP_SHIELD_ENABLE_HTTP: "true"
+  MCP_SHIELD_ENABLE_SSE: "true"
+  MCP_SHIELD_ENABLE_STDIO: "false"
+
+x-common-resources: &common-resources
+  deploy:
+    resources:
+      limits:
+        cpus: '2'
+        memory: 2G
+      reservations:
+        cpus: '0.5'
+        memory: 512M
+
+x-common-healthcheck: &common-healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 15s
+
+x-common-logging: &common-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Services
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # MCP-Shield Gateway (Main Service)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  mcp-shield:
+    image: ${MCP_SHIELD_IMAGE:-mcpshield/mcp-shield:dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+      args:
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
+        VCS_REF: ${VCS_REF:-$(git rev-parse --short HEAD)}
+        VCS_URL: ${VCS_URL:-https://github.com/mcp-shield/mcp-shield}
+    container_name: mcp-shield-gateway
+    hostname: mcp-shield
+    restart: unless-stopped
+    user: "65532:65532"
+    environment:
+      <<: *common-environment
+      # Server
+      MCP_SHIELD_SERVER_BIND_ADDR: 0.0.0.0:8080
+      MCP_SHIELD_SERVER_LOG_LEVEL: ${MCP_SHIELD_LOG_LEVEL:-debug}
+      MCP_SHIELD_SERVER_JSON_LOGGING: "false"
+      
+      # Auth (disabled by default for local dev)
+      MCP_SHIELD_AUTH_ENABLED: ${MCP_SHIELD_AUTH_ENABLED:-false}
+      MCP_SHIELD_AUTH_JWT_SECRET: ${MCP_SHIELD_AUTH_JWT_SECRET:-dev-secret-change-in-production}
+      MCP_SHIELD_AUTH_ISSUER: ${MCP_SHIELD_AUTH_ISSUER:-https://auth.local}
+      MCP_SHIELD_AUTH_REQUIRED_SCOPES: mcp:tools:read,mcp:tools:call
+      
+      # Registry
+      MCP_SHIELD_REGISTRY_ENFORCE_PREFIX: "true"
+      MCP_SHIELD_REGISTRY_ALLOWED_PREFIXES: com.local,io.local
+      
+      # Telemetry
+      MCP_SHIELD_TELEMETRY_METRICS_PATH: /metrics
+      MCP_SHIELD_TELEMETRY_METRICS_ADDR: 0.0.0.0:9090
+      MCP_SHIELD_TELEMETRY_KAFKA_BOOTSTRAP_SERVERS: ""
+      
+      # Upstream (echo server for testing)
+      MCP_SHIELD_PROXY_UPSTREAM_URL: http://mcp-echo:8080
+      MCP_SHIELD_PROXY_REQUEST_TIMEOUT_SECS: 30
+      MCP_SHIELD_PROXY_MAX_CONCURRENT: 100
+      
+      # Database (Phase 4)
+      MCP_SHIELD_DB_ENABLED: ${MCP_SHIELD_DB_ENABLED:-true}
+      MCP_SHIELD_DB_URL: postgresql://mcp_shield:${POSTGRES_PASSWORD}@postgres:5432/mcp_shield?sslmode=disable
+      
+      # Redis (Phase 4)
+      MCP_SHIELD_REDIS_ENABLED: ${MCP_SHIELD_REDIS_ENABLED:-true}
+      MCP_SHIELD_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+    ports:
+      - "8080:8080"   # MCP HTTP/SSE
+      - "9090:9090"   # Prometheus metrics
+      - "9091:9091"   # Health checks
+    networks:
+      - mcp-shield-frontend
+      - mcp-shield-backend
+    volumes:
+      - mcp-shield-config:/etc/mcp-shield/config:ro
+      - mcp-shield-policies:/etc/mcp-shield/policies:ro
+      - ./config:/etc/mcp-shield/config:ro
+      - ./policies:/etc/mcp-shield/policies:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["/usr/local/bin/healthcheck.sh", "health"]
+      <<: *common-healthcheck
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+      - /var/lib/mcp-shield/data
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # PostgreSQL (Control Plane Database - Phase 4)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcp-shield-postgres
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mcp_shield
+      POSTGRES_USER: mcp_shield
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"
+    networks:
+      - mcp-shield-backend
+    volumes:
+      - mcp-shield-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp_shield -d mcp_shield"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: false
+    tmpfs:
+      - /var/run/postgresql
+      - /tmp
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Redis (Session Storage, Rate Limiting, Caching - Phase 4)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  redis:
+    image: redis:7-alpine
+    container_name: mcp-shield-redis
+    hostname: redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    ports:
+      - "6379:6379"
+    networks:
+      - mcp-shield-backend
+    volumes:
+      - mcp-shield-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # OpenTelemetry Collector (Traces, Metrics, Logs)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    container_name: mcp-shield-otel-collector
+    hostname: otel-collector
+    restart: unless-stopped
+    command:
+      - "--config=/etc/otel-collector/config.yaml"
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics (internal)
+      - "55681:55681" # zPages
+    networks:
+      - mcp-shield-observability
+      - mcp-shield-backend
+    volumes:
+      - ./docker/otel-collector/config.yaml:/etc/otel-collector/config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Prometheus (Metrics Collection)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mcp-shield-prometheus
+    hostname: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--storage.tsdb.retention.size=10GB"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    ports:
+      - "9090:9090"
+    networks:
+      - mcp-shield-observability
+      - mcp-shield-backend
+    volumes:
+      - mcp-shield-prometheus-data:/prometheus
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/rules:/etc/prometheus/rules:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Grafana (Dashboards & Visualization)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: mcp-shield-grafana
+    hostname: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+      GF_LOG_LEVEL: info
+      GF_LOG_MODE: console
+    ports:
+      - "3000:3000"
+    networks:
+      - mcp-shield-observability
+    volumes:
+      - mcp-shield-grafana-data:/var/lib/grafana
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/dashboards/mcp-shield:/var/lib/grafana/dashboards/mcp-shield:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "472:472"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Loki (Log Aggregation)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: mcp-shield-loki
+    hostname: loki
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+    ports:
+      - "3100:3100"
+    networks:
+      - mcp-shield-observability
+    volumes:
+      - mcp-shield-loki-data:/loki
+      - ./docker/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Promtail (Log Shipper for Loki)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: mcp-shield-promtail
+    hostname: promtail
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/promtail/config.yml"
+    networks:
+      - mcp-shield-observability
+      - mcp-shield-backend
+    volumes:
+      - ./docker/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - mcp-shield-config:/etc/mcp-shield/config:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_RESOURCE
+    user: "root"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Jaeger (Distributed Tracing)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: mcp-shield-jaeger
+    hostname: jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "false"
+      BADGER_DIRECTORY_VALUE: /var/lib/jaeger/data
+      BADGER_DIRECTORY_KEY: /var/lib/jaeger/key
+      LOG_LEVEL: info
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "6831:6831/udp"  # Jaeger compact thrift
+      - "6832:6832/udp"  # Jaeger binary thrift
+      - "14268:14268"    # Jaeger HTTP
+      - "4317:4317"      # OTLP gRPC
+      - "4318:4318"      # OTLP HTTP
+    networks:
+      - mcp-shield-observability
+    volumes:
+      - mcp-shield-jaeger-data:/var/lib/jaeger
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:14269/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # MCP Echo Server (Built-in Test Server)
+  # ═══════════════════════════════════════════════════════════════════════════════
+  mcp-echo:
+    image: ${MCP_ECHO_IMAGE:-mcpshield/mcp-echo:dev}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.echo
+      target: runtime
+    container_name: mcp-shield-echo
+    hostname: mcp-echo
+    restart: unless-stopped
+    environment:
+      RUST_LOG: ${MCP_ECHO_LOG_LEVEL:-info}
+      MCP_ECHO_BIND_ADDR: 0.0.0.0:8080
+      MCP_ECHO_SERVER_NAME: mcp-echo
+      MCP_ECHO_SERVER_VERSION: 0.1.0
+    ports:
+      - "8081:8080"
+    networks:
+      - mcp-shield-backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *common-resources
+    <<: *common-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run

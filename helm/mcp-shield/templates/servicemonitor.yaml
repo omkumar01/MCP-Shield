@@ -1,0 +1,74 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield ServiceMonitor (Prometheus Operator)                              │
+# │                                                                              │
+# │ Configures Prometheus to scrape metrics from MCP-Shield pods.               │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  namespace: {{ .Values.serviceMonitor.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      path: {{ .Values.config.telemetry.metrics_path }}
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      scheme: http
+      # TLS config for secure metrics endpoint
+      {{- if .Values.config.telemetry.tls_enabled }}
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- end }}
+      # Relabelings for better metric labels
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+          targetLabel: app
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_version]
+          targetLabel: version
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield PodMonitor (Alternative to ServiceMonitor)                       │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  namespace: {{ .Values.podMonitor.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: {{ .Values.config.telemetry.metrics_path }}
+      interval: {{ .Values.podMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

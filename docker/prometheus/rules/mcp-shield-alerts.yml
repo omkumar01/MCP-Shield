@@ -1,0 +1,391 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Prometheus Alerting Rules for MCP-Shield                                     │
+# │                                                                              │
+# │ Covers: Gateway health, authentication, rate limiting, performance,         │
+# │         resource utilization, and business metrics.                         │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+groups:
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # MCP-Shield Gateway Alerts
+  # ═══════════════════════════════════════════════════════════════════════════════
+  - name: mcp-shield-gateway
+    interval: 30s
+    rules:
+      # Instance Down
+      - alert: MCPShieldInstanceDown
+        expr: up{job="mcp-shield"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield instance {{ $labels.instance }} is down"
+          description: "MCP-Shield instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/instance-down.md"
+
+      # High Request Latency (p99 > 500ms)
+      - alert: MCPShieldHighLatency
+        expr: |
+          histogram_quantile(0.99, sum(rate(mcp_request_duration_seconds_bucket[5m])) by (le, method)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield high request latency (p99 > 500ms)"
+          description: "MCP-Shield {{ $labels.method }} requests have p99 latency of {{ $value | printf \"%.3f\" }}s"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-latency.md"
+
+      # High Error Rate (> 5%)
+      - alert: MCPShieldHighErrorRate
+        expr: |
+          (
+            sum(rate(mcp_requests_total{status=~"5.."}[5m])) by (method)
+            /
+            sum(rate(mcp_requests_total[5m])) by (method)
+          ) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield high error rate (> 5%)"
+          description: "MCP-Shield {{ $labels.method }} requests have error rate of {{ $value | humanizePercentage }}"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-error-rate.md"
+
+      # Authentication Failures Spike
+      - alert: MCPShieldAuthFailuresSpike
+        expr: |
+          rate(mcp_auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: auth
+        annotations:
+          summary: "MCP-Shield authentication failures spike"
+          description: "Authentication failures rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/auth-failures.md"
+
+      # Validation Failures Spike
+      - alert: MCPShieldValidationFailuresSpike
+        expr: |
+          rate(mcp_validation_failures_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: validation
+        annotations:
+          summary: "MCP-Shield validation failures spike"
+          description: "Validation failures rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/validation-failures.md"
+
+      # Blocked Requests Spike
+      - alert: MCPShieldBlockedRequestsSpike
+        expr: |
+          rate(mcp_blocked_requests_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: policy
+        annotations:
+          summary: "MCP-Shield blocked requests spike"
+          description: "Blocked requests rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/blocked-requests.md"
+
+      # Active Sessions High
+      - alert: MCPShieldHighActiveSessions
+        expr: |
+          mcp_active_sessions > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield high active sessions ({{ $value }})"
+          description: "Active MCP sessions exceeded 10,000. Current: {{ $value }}"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-sessions.md"
+
+      # Upstream Server Down
+      - alert: MCPShieldUpstreamDown
+        expr: |
+          up{job="mcp-echo"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: mcp-shield
+          component: upstream
+        annotations:
+          summary: "MCP-Shield upstream server {{ $labels.instance }} is down"
+          description: "Upstream MCP server {{ $labels.instance }} has been down for more than 1 minute"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/upstream-down.md"
+
+      # Upstream High Latency
+      - alert: MCPShieldUpstreamHighLatency
+        expr: |
+          histogram_quantile(0.99, sum(rate(mcp_upstream_request_duration_seconds_bucket[5m])) by (le, server)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: upstream
+        annotations:
+          summary: "MCP-Shield upstream {{ $labels.server }} high latency"
+          description: "Upstream {{ $labels.server }} p99 latency is {{ $value | printf \"%.3f\" }}s"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/upstream-latency.md"
+
+      # Circuit Breaker Open
+      - alert: MCPShieldCircuitBreakerOpen
+        expr: |
+          mcp_circuit_breaker_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: mcp-shield
+          component: circuit-breaker
+        annotations:
+          summary: "MCP-Shield circuit breaker open for {{ $labels.server }}"
+          description: "Circuit breaker for upstream {{ $labels.server }} is open. Requests are being rejected."
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/circuit-breaker.md"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # MCP-Shield Resource Alerts
+  # ═══════════════════════════════════════════════════════════════════════════════
+  - name: mcp-shield-resources
+    interval: 30s
+    rules:
+      # High Memory Usage
+      - alert: MCPShieldHighMemoryUsage
+        expr: |
+          (container_memory_usage_bytes{pod=~"mcp-shield-.*"} / container_spec_memory_limit_bytes{pod=~"mcp-shield-.*"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield pod {{ $labels.pod }} high memory usage ({{ $value | humanizePercentage }})"
+          description: "Memory usage is above 85% of limit. Current: {{ $value | humanizePercentage }}"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-memory.md"
+
+      # High CPU Usage
+      - alert: MCPShieldHighCPUUsage
+        expr: |
+          (rate(container_cpu_usage_seconds_total{pod=~"mcp-shield-.*"}[5m]) / container_spec_cpu_quota{pod=~"mcp-shield-.*"} / container_spec_cpu_period{pod=~"mcp-shield-.*"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield pod {{ $labels.pod }} high CPU usage ({{ $value | humanizePercentage }})"
+          description: "CPU usage is above 85% of limit. Current: {{ $value | humanizePercentage }}"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-cpu.md"
+
+      # Pod Restart Loop
+      - alert: MCPShieldPodRestartLoop
+        expr: |
+          increase(kube_pod_container_status_restarts_total{pod=~"mcp-shield-.*"}[15m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          service: mcp-shield
+          component: gateway
+        annotations:
+          summary: "MCP-Shield pod {{ $labels.pod }} restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/pod-restarts.md"
+
+      # HPA Scaling
+      - alert: MCPShieldHPAMaxReplicasReached
+        expr: |
+          kube_horizontalpodautoscaler_status_current_replicas{hpa="mcp-shield"} == kube_horizontalpodautoscaler_spec_max_replicas{hpa="mcp-shield"}
+        for: 10m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: autoscaling
+        annotations:
+          summary: "MCP-Shield HPA at max replicas"
+          description: "HPA has been at max replicas ({{ $value }}) for more than 10 minutes"
+          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/hpa-max-replicas.md"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Infrastructure Alerts
+  # ═══════════════════════════════════════════════════════════════════════════════
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # PostgreSQL
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+          component: database
+        annotations:
+          summary: "PostgreSQL instance {{ $labels.instance }} is down"
+          description: "PostgreSQL has been down for more than 1 minute"
+
+      - alert: PostgreSQLHighConnections
+        expr: |
+          pg_stat_database_numbackends / pg_settings_max_connections > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+          component: database
+        annotations:
+          summary: "PostgreSQL high connection usage ({{ $value | humanizePercentage }})"
+          description: "Connection usage is above 85% of max_connections"
+
+      # Redis
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+          component: cache
+        annotations:
+          summary: "Redis instance {{ $labels.instance }} is down"
+          description: "Redis has been down for more than 1 minute"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          component: cache
+        annotations:
+          summary: "Redis high memory usage ({{ $value | humanizePercentage }})"
+          description: "Redis memory usage is above 85% of maxmemory"
+
+      # Prometheus
+      - alert: PrometheusHighMemoryUsage
+        expr: |
+          (prometheus_tsdb_head_series / 1e6) > 5
+        for: 10m
+        labels:
+          severity: warning
+          service: prometheus
+          component: monitoring
+        annotations:
+          summary: "Prometheus high series count ({{ $value }}M)"
+          description: "Prometheus is tracking {{ $value }}M active series"
+
+      - alert: PrometheusTSDBCompactionsFailing
+        expr: |
+          increase(prometheus_tsdb_compactions_failed_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: prometheus
+          component: monitoring
+        annotations:
+          summary: "Prometheus TSDB compactions failing"
+          description: "{{ $value }} compactions failed in the last hour"
+
+      # Node Exporter
+      - alert: NodeHighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: node-exporter
+          component: infrastructure
+        annotations:
+          summary: "Node {{ $labels.instance }} high CPU usage ({{ $value }}%)"
+          description: "CPU usage has been above 85% for more than 10 minutes"
+
+      - alert: NodeHighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: node-exporter
+          component: infrastructure
+        annotations:
+          summary: "Node {{ $labels.instance }} high memory usage ({{ $value }}%)"
+          description: "Memory usage has been above 85% for more than 10 minutes"
+
+      - alert: NodeDiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+          service: node-exporter
+          component: infrastructure
+        annotations:
+          summary: "Node {{ $labels.instance }} disk space low ({{ $value }}% free)"
+          description: "Root filesystem has less than 10% free space"
+
+      - alert: NodeDiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+        for: 1m
+        labels:
+          severity: critical
+          service: node-exporter
+          component: infrastructure
+        annotations:
+          summary: "Node {{ $labels.instance }} disk space critical ({{ $value }}% free)"
+          description: "Root filesystem has less than 5% free space"
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Business Metrics Alerts
+  # ═══════════════════════════════════════════════════════════════════════════════
+  - name: mcp-shield-business
+    interval: 5m
+    rules:
+      # Low Request Volume (potential issue)
+      - alert: MCPShieldLowRequestVolume
+        expr: |
+          sum(rate(mcp_requests_total[15m])) < 1
+        for: 30m
+        labels:
+          severity: info
+          service: mcp-shield
+          component: business
+        annotations:
+          summary: "MCP-Shield low request volume"
+          description: "Request rate dropped below 1 req/s for 30 minutes. Current rate: {{ $value }} req/s"
+
+      # Policy Evaluation Time High
+      - alert: MCPShieldPolicyEvaluationSlow
+        expr: |
+          histogram_quantile(0.99, sum(rate(mcp_policy_evaluation_duration_seconds_bucket[5m])) by (le)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp-shield
+          component: policy
+        annotations:
+          summary: "MCP-Shield policy evaluation slow (p99 > 100ms)"
+          description: "Policy evaluation p99 latency is {{ $value | printf \"%.3f\" }}s"
+
+      # Cache Hit Rate Low
+      - alert: MCPShieldLowCacheHitRate
+        expr: |
+          (sum(rate(mcp_cache_hits_total[5m])) / (sum(rate(mcp_cache_hits_total[5m])) + sum(rate(mcp_cache_misses_total[5m])))) < 0.5
+        for: 15m
+        labels:
+          severity: info
+          service: mcp-shield
+          component: cache
+        annotations:
+          summary: "MCP-Shield cache hit rate low ({{ $value | humanizePercentage }})"
+          description: "Cache hit rate is below 50% for 15 minutes"

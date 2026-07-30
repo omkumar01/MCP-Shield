@@ -1,0 +1,592 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Helm Chart - Production Values                                    │
+# │                                                                              │
+# │ Production-ready configuration overrides.                                    │
+│ Use with: helm install mcp-shield ./helm/mcp-shield -f values-prod.yaml       │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global Production Settings
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  environment: production
+  labels:
+    environment: production
+    team: platform
+  priorityClassName: system-cluster-critical
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Image (Production: Use specific digest for immutability)
+# ─────────────────────────────────────────────────────────────────────────────
+image:
+  registry: ghcr.io
+  repository: mcp-shield/mcp-shield
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+  # Use digest for immutable deployments (recommended for production)
+  # digest: sha256:abc123def456...
+  pullSecrets:
+    - name: ghcr-credentials
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Account (IRSA/Workload Identity)
+# ─────────────────────────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  annotations:
+    # AWS IRSA
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/mcp-shield-prod
+    # GCP Workload Identity
+    # iam.gke.io/service-account: mcp-shield@my-project.iam.gserviceaccount.com
+    # Azure Workload Identity
+    # azure.workload.identity/client-id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security Context (Hardened)
+# ─────────────────────────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+  privileged: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Replicas & Autoscaling
+# ─────────────────────────────────────────────────────────────────────────────
+replicaCount: 5
+
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 65
+  targetMemoryUtilizationPercentage: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resources (Production Sizing)
+# ─────────────────────────────────────────────────────────────────────────────
+resources:
+  limits:
+    cpu: "4000m"
+    memory: "4Gi"
+  requests:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Affinity & Topology Spread (HA)
+# ─────────────────────────────────────────────────────────────────────────────
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - mcp-shield
+          topologyKey: topology.kubernetes.io/zone
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - mcp-shield
+          topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: node.kubernetes.io/instance-type
+              operator: In
+              values:
+                - m6i.xlarge
+                - c6i.xlarge
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-shield
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-shield
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Update Strategy (Zero-downtime)
+# ─────────────────────────────────────────────────────────────────────────────
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Health Checks (Production Timings)
+# ─────────────────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: health
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: health
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  httpGet:
+    path: /livez
+    port: health
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 60
+  successThreshold: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Disruption Budget
+# ─────────────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 50%
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Application Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+config:
+  server:
+    bind_addr: "0.0.0.0:8080"
+    log_level: "info"
+    json_logging: true
+    enable_http: true
+    enable_sse: true
+    enable_stdio: false
+    request_timeout_secs: 30
+    max_request_size: 10485760
+    graceful_shutdown_timeout: 30
+    server_info:
+      name: "mcp-shield"
+      version: "0.1.0"
+  
+  auth:
+    enabled: true
+    # Use secrets, not config!
+    # jwt_secret: ""
+    jwks_url: "https://auth.example.com/.well-known/jwks.json"
+    issuer: "https://auth.example.com"
+    audience: "mcp-shield"
+    required_scopes:
+      - "mcp:tools:read"
+      - "mcp:tools:call"
+    validate_audience: true
+    validate_issuer: true
+    clock_skew_tolerance_secs: 30
+    oidc_discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+    prm_enabled: true
+  
+  registry:
+    enforce_prefix_format: true
+    allowed_prefixes:
+      - "com.company"
+      - "io.internal"
+      - "org.company"
+    max_tools_per_server: 5000
+    tool_registration_timeout_secs: 10
+  
+  proxy:
+    request_timeout_secs: 30
+    max_concurrent_requests: 500
+    upstream_tls_verify: true
+    upstream_ca_cert: ""
+    connect_timeout_secs: 10
+    idle_timeout_secs: 90
+    keep_alive: true
+  
+  telemetry:
+    metrics_path: "/metrics"
+    metrics_addr: "0.0.0.0:9090"
+    health_addr: "0.0.0.0:9091"
+    otlp_endpoint: "https://otel-collector.observability.svc.cluster.local:4317"
+    otlp_insecure: false
+    otlp_headers:
+      Authorization: "Bearer ${OTEL_EXPORTER_OTLP_TOKEN}"
+    kafka_bootstrap_servers:
+      - "kafka-1.kafka.svc.cluster.local:9092"
+      - "kafka-2.kafka.svc.cluster.local:9092"
+      - "kafka-3.kafka.svc.cluster.local:9092"
+    kafka_topic: "mcp-shield-audit"
+    kafka_producer_config:
+      acks: "all"
+      retries: 3
+      compression_type: "snappy"
+  
+  rate_limit:
+    enabled: true
+    requests_per_minute: 10000
+    burst: 1000
+    scope_limits:
+      "mcp:tools:read": 5000
+      "mcp:tools:call": 2000
+      "mcp:admin": 100
+  
+  cors:
+    enabled: true
+    allowed_origins:
+      - "https://app.example.com"
+      - "https://admin.example.com"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "OPTIONS"
+    allowed_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "Mcp-Session-Id"
+      - "X-Request-ID"
+    max_age: 86400
+  
+  websocket:
+    enabled: true
+    path: "/ws"
+    max_connections: 10000
+  
+  features:
+    cedar_policy_engine: true
+    session_context_locking: true
+    ecpa_guardrails: false
+    egress_sanitization: true
+    postgresql_control_plane: true
+    redis_session_store: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Variables (Non-secret)
+# ─────────────────────────────────────────────────────────────────────────────
+env:
+  - name: MCP_SHIELD_TELEMETRY_KAFKA_BOOTSTRAP_SERVERS
+    value: "kafka-1.kafka.svc.cluster.local:9092,kafka-2.kafka.svc.cluster.local:9092,kafka-3.kafka.svc.cluster.local:9092"
+  - name: MCP_SHIELD_TELEMETRY_KAFKA_TOPIC
+    value: "mcp-shield-audit"
+  - name: OTEL_SERVICE_NAME
+    value: "mcp-shield"
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "service.name=mcp-shield,deployment.environment=production,kubernetes.cluster=prod"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Variables from Secrets
+# ─────────────────────────────────────────────────────────────────────────────
+envFrom:
+  - secretRef:
+      name: mcp-shield-secrets
+      optional: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  - name: config
+    configMap:
+      name: mcp-shield-config
+  - name: policies
+    configMap:
+      name: mcp-shield-policies
+  - name: tmp
+    emptyDir:
+      sizeLimit: 200Mi
+  - name: data
+    emptyDir:
+      sizeLimit: 1Gi
+  - name: tls-certs
+    secret:
+      secretName: mcp-shield-tls
+      optional: true
+
+volumeMounts:
+  - name: config
+    mountPath: /etc/mcp-shield/config
+    readOnly: true
+  - name: policies
+    mountPath: /etc/mcp-shield/policies
+    readOnly: true
+  - name: tmp
+    mountPath: /tmp
+  - name: data
+    mountPath: /var/lib/mcp-shield/data
+  - name: tls-certs
+    mountPath: /etc/mcp-shield/tls
+    readOnly: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ingress (Production TLS + mTLS)
+# ─────────────────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    # NGINX Ingress
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1s"
+    # mTLS
+    nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    nginx.ingress.kubernetes.io/auth-tls-secret: "mcp-shield/mcp-shield-ca-secret"
+    nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
+    nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Content-Type-Options nosniff;
+      add_header X-Frame-Options DENY;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  hosts:
+    - host: mcp-shield.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: mcp-shield.internal.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mcp-shield-tls
+      hosts:
+        - mcp-shield.example.com
+    - secretName: mcp-shield-internal-tls
+      hosts:
+        - mcp-shield.internal.example.com
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Network Policies
+# ─────────────────────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  defaultDeny: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-shield
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9091
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: cache
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: messaging
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: observability
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 14268
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC
+# ─────────────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+  clusterRole:
+    create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["configmaps", "secrets", "pods", "services", "endpoints"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["networking.k8s.io"]
+      resources: ["ingresses", "ingressclasses"]
+      verbs: ["get", "list", "watch", "create", "update", "patch"]
+    - apiGroups: ["cert-manager.io"]
+      resources: ["certificates", "issuers", "clusterissuers"]
+      verbs: ["get", "list", "watch", "create", "update", "patch"]
+    - apiGroups: ["monitoring.coreos.com"]
+      resources: ["servicemonitors", "podmonitors", "prometheusrules"]
+      verbs: ["get", "list", "watch", "create", "update", "patch"]
+    - apiGroups: ["externalsecrets.io"]
+      resources: ["externalsecrets", "secretstores", "clustersecretstores"]
+      verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Security Standards (Kyverno)
+# ─────────────────────────────────────────────────────────────────────────────
+podSecurityStandards:
+  enabled: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Monitor (Prometheus Operator)
+# ─────────────────────────────────────────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels:
+    release: prometheus
+    team: platform
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus Rules
+# ─────────────────────────────────────────────────────────────────────────────
+prometheusRules:
+  enabled: true
+  namespace: monitoring
+  additionalLabels:
+    release: prometheus
+    team: platform
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Grafana Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+grafanaDashboard:
+  enabled: true
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    team: platform
+
+# ─────────────────────────────────────────────────────────────────────────────
+# External Dependencies (Production)
+# ─────────────────────────────────────────────────────────────────────────────
+postgresql:
+  enabled: true
+  external:
+    enabled: true
+    host: "postgresql.database.svc.cluster.local"
+    port: 5432
+    database: "mcp_shield"
+    username: "mcp_shield"
+    password: ""  # From secret
+    sslMode: "verify-full"
+    sslRootCert: "/etc/mcp-shield/tls/ca.crt"
+
+redis:
+  enabled: true
+  external:
+    enabled: true
+    host: "redis.cache.svc.cluster.local"
+    port: 6379
+    password: ""  # From secret
+    db: 0
+    tls: true
+
+kafka:
+  enabled: true
+  external:
+    enabled: true
+    brokers:
+      - "kafka-1.kafka.svc.cluster.local:9092"
+      - "kafka-2.kafka.svc.cluster.local:9092"
+      - "kafka-3.kafka.svc.cluster.local:9092"
+    topic: "mcp-shield-audit"
+    sasl:
+      enabled: true
+      username: "mcp-shield"
+      password: ""  # From secret
+    tls:
+      enabled: true
+
+clickhouse:
+  enabled: true
+  external:
+    enabled: true
+    host: "clickhouse.analytics.svc.cluster.local"
+    port: 8123
+    database: "mcp_shield"
+    username: "mcp_shield"
+    password: ""  # From secret

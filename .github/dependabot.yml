@@ -1,0 +1,174 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Dependabot Configuration                                                     │
+# │                                                                              │
+# │ Automated dependency updates for security and maintenance.                  │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+version: 2
+updates:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Rust Dependencies (Cargo)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "mcp-shield/maintainers"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "rust"
+      - "cargo"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # Ignore major version updates for breaking changes
+      - dependency-name: "*"
+        update-type: "version-update:semver-major"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    rebase-strategy: "auto"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Docker Dependencies
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mcp-shield/maintainers"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "docker"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # Don't auto-update base images (requires testing)
+      - dependency-name: "rust"
+        update-type: "version-update:semver-major"
+      - dependency-name: "debian"
+        update-type: "version-update:semver-major"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GitHub Actions Dependencies
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "mcp-shield/maintainers"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Helm Chart Dependencies
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "helm"
+    directory: "/helm"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mcp-shield/maintainers"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "helm"
+      - "kubernetes"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    ignore:
+      # Don't auto-update major versions of critical dependencies
+      - dependency-name: "postgresql"
+        update-type: "version-update:semver-major"
+      - dependency-name: "redis"
+        update-type: "version-update:semver-major"
+      - dependency-name: "kafka"
+        update-type: "version-update:semver-major"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Security Updates (Daily)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "mcp-shield/security-team"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "rust"
+      - "security"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "security-update"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Docker Security Updates (Daily)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "06:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "mcp-shield/security-team"
+    assignees:
+      - "mcp-shield/bot"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "security"
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "security-update"

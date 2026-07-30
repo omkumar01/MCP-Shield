@@ -1,3 +1,7 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield ConfigMaps                                                        │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,6 +11,9 @@ metadata:
 data:
   default.toml: |
     {{- .Values.config | toYaml | nindent 4 }}
+    {{- if .Values.extraConfig }}
+    {{- .Values.extraConfig | toYaml | nindent 4 }}
+    {{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -17,8 +24,26 @@ metadata:
 data:
   default.cedar: |
     // MCP-Shield default Cedar policy
+    // Permit all by default - override with explicit policies
     permit (
         principal,
         action,
         resource
     );
+    {{- if .Values.config.features.cedar_policy_engine }}
+    // Additional policies can be added here or mounted via separate ConfigMaps
+    {{- end }}
+---
+{{- if .Values.config.features.cedar_policy_engine }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-cedar-policies
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Files.Glob "policies/cedar/*.cedar" }}
+  {{ base $key }}: |
+{{ $value | indent 4 }}
+  {{- end }}
+{{- end }}

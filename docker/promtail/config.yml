@@ -1,0 +1,118 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ Promtail Configuration - Local Development                                   │
+# │                                                                              │
+# │ Ships logs from Docker containers to Loki.                                  │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: mcp-shield
+    batchwait: 1s
+    batchsize: 102400
+    timeout: 10s
+
+positions:
+  filename: /tmp/positions.yaml
+
+scrape_configs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Docker Container Logs
+  # ─────────────────────────────────────────────────────────────────────────────
+  - job_name: docker-containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker-logs
+          __path__: /var/lib/docker/containers/*/*-json.log
+    pipeline_stages:
+      - json:
+          expressions:
+            stream: stream
+            log: log
+            attrs: attrs
+      - labels:
+          stream:
+            container_name:
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      - output:
+          source: log
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # MCP-Shield Application Logs (Structured JSON)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - job_name: mcp-shield-app
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: mcp-shield
+          component: gateway
+          service: mcp-shield
+          __path__: /var/log/mcp-shield/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            message: message
+            timestamp: timestamp
+            module: module
+            span_id: span_id
+            trace_id: trace_id
+            method: method
+            status_code: status_code
+            duration_ms: duration_ms
+            error: error
+      - labels:
+          level:
+          module:
+          method:
+          error:
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      - output:
+          source: message
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # System Logs (Journal)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - job_name: systemd-journal
+    journal:
+      max_age: 12h
+      labels:
+        job: systemd
+    pipeline_stages:
+      - labels:
+          _SYSTEMD_UNIT:
+      - timestamp:
+          source: __REALTIME_TIMESTAMP
+          format: RFC3339Nano
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Nginx/Ingress Logs (if running ingress controller)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - job_name: ingress-nginx
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ingress-nginx
+          component: ingress
+          __path__: /var/log/nginx/*.log
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<request>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+      - labels:
+          remote_addr:
+          status:
+      - timestamp:
+          source: time_local
+          format: "02/Jan/2006:15:04:05 -0700"

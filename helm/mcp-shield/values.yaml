@@ -1,95 +1,334 @@
-# Default values for MCP-Shield.
-# This is a YAML-formatted file.
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Helm Chart - Default Values                                       │
+# │                                                                              │
+# │ Production-ready configuration with all options exposed.                    │
+# │ Override with --set or -f values-prod.yaml                                  │
+# └──────────────────────────────────────────────────────────────────────────────┘
 
-replicaCount: 2
+# ─────────────────────────────────────────────────────────────────────────────
+# Global Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+global:
+  # Deployment environment: local, development, staging, production
+  environment: production
+  
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  
+  # Common labels applied to all resources
+  labels: {}
+  
+  # Common annotations applied to all resources
+  annotations: {}
+  
+  # Priority class for pods
+  priorityClassName: ""
+  
+  # DNS configuration
+  dnsConfig: {}
+  dnsPolicy: ClusterFirst
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Image Configuration
+# ─────────────────────────────────────────────────────────────────────────────
 image:
+  registry: docker.io
   repository: mcpshield/mcp-shield
+  # Overrides the image tag whose default is the chart appVersion
+  tag: "0.1.0"
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  # Image digest for immutable deployments (recommended for production)
+  # digest: sha256:abc123...
+  pullSecrets: []
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Image Pull Secrets (Alternative to global.imagePullSecrets)
+# ─────────────────────────────────────────────────────────────────────────────
 imagePullSecrets: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Name Overrides
+# ─────────────────────────────────────────────────────────────────────────────
 nameOverride: ""
 fullnameOverride: ""
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Account Configuration
+# ─────────────────────────────────────────────────────────────────────────────
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
   # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
+  annotations:
+    # For IRSA (AWS), Workload Identity (GCP), Azure AD Workload Identity
+    # eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/mcp-shield-role
+    # iam.gke.io/service-account: mcp-shield@my-project.iam.gserviceaccount.com
+    # azure.workload.identity/client-id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  # The name of the service account to use
   # If not set and create is true, a name is generated using the fullname template
   name: ""
+  # Automount API credentials for the service account
+  automountServiceAccountToken: true
 
-podAnnotations: {}
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Security Context
+# ─────────────────────────────────────────────────────────────────────────────
 podSecurityContext:
-  fsGroup: 65532
   runAsNonRoot: true
   runAsUser: 65532
   runAsGroup: 65532
+  fsGroup: 65532
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+  supplementalGroups: []
+  sysctls: []
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Container Security Context
+# ─────────────────────────────────────────────────────────────────────────────
 securityContext:
-  readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+  privileged: false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Configuration
+# ─────────────────────────────────────────────────────────────────────────────
 service:
   type: ClusterIP
+  # HTTP port for MCP traffic
   port: 8080
+  targetPort: http
+  # Metrics port for Prometheus
   metricsPort: 9090
+  metricsTargetPort: metrics
+  # Health check port
+  healthPort: 9091
+  healthTargetPort: health
+  # Additional ports
+  additionalPorts: []
+  # Annotations for the service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+  # Load balancer configuration (for LoadBalancer type)
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  externalTrafficPolicy: Cluster
+  # Internal load balancer (for private access)
+  internal: false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Ingress Configuration
+# ─────────────────────────────────────────────────────────────────────────────
 ingress:
-  enabled: false
-  className: ""
-  annotations: {}
+  enabled: true
+  # Ingress class name (nginx, traefik, envoy, alb, gce, etc.)
+  className: "nginx"
+  # Annotations for the ingress controller
+  annotations:
+    # NGINX
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1s"
+    # TLS
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    # mTLS (optional)
+    # nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+    # nginx.ingress.kubernetes.io/auth-tls-secret: "mcp-shield/mcp-shield-ca-secret"
+    # nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
+    # nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream: "true"
+  # Hosts configuration
   hosts:
-    - host: mcp-shield.local
+    - host: mcp-shield.example.com
       paths:
         - path: /
           pathType: Prefix
-  tls: []
+  # TLS configuration
+  tls:
+    - secretName: mcp-shield-tls
+      hosts:
+        - mcp-shield.example.com
+  # Default backend (for unmatched requests)
+  defaultBackend:
+    enabled: false
+    serviceName: ""
+    servicePort: 80
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Replica Count
+# ─────────────────────────────────────────────────────────────────────────────
+replicaCount: 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Disruption Budget
+# ─────────────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 50%
+  # maxUnavailable: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Horizontal Pod Autoscaler
+# ─────────────────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Custom metrics autoscaling
+  metrics: []
+  # behavior:
+  #   scaleDown:
+  #     stabilizationWindowSeconds: 300
+  #     policies:
+  #       - type: Percent
+  #         value: 10
+  #         periodSeconds: 60
+  #   scaleUp:
+  #     stabilizationWindowSeconds: 0
+  #     policies:
+  #       - type: Percent
+  #         value: 100
+  #         periodSeconds: 15
+  #       - type: Pods
+  #         value: 4
+  #         periodSeconds: 15
+  #     selectPolicy: Max
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resource Requests and Limits
+# ─────────────────────────────────────────────────────────────────────────────
 resources:
   limits:
-    cpu: 1000m
-    memory: 512Mi
+    cpu: "2000m"
+    memory: "2Gi"
   requests:
-    cpu: 250m
-    memory: 128Mi
+    cpu: "500m"
+    memory: "512Mi"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Node Selection
+# ─────────────────────────────────────────────────────────────────────────────
+nodeSelector: {}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tolerations
+# ─────────────────────────────────────────────────────────────────────────────
+tolerations: []
+  # - key: "dedicated"
+  #   operator: "Equal"
+  #   value: "mcp-shield"
+  #   effect: "NoSchedule"
+  # - key: "CriticalAddonsOnly"
+  #   operator: "Exists"
+  #   effect: "NoSchedule"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Affinity and Anti-Affinity
+# ─────────────────────────────────────────────────────────────────────────────
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - mcp-shield
+          topologyKey: kubernetes.io/hostname
+  podAffinity: {}
+  nodeAffinity: {}
+  # Example for dedicated nodes:
+  # nodeAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     nodeSelectorTerms:
+  #       - matchExpressions:
+  #           - key: workload
+  #             operator: In
+  #             values:
+  #               - mcp-shield
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Topology Spread Constraints
+# ─────────────────────────────────────────────────────────────────────────────
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-shield
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: mcp-shield
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Update Strategy
+# ─────────────────────────────────────────────────────────────────────────────
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
+    # For canary deployments:
+    # partition: 0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Health Checks
+# ─────────────────────────────────────────────────────────────────────────────
 livenessProbe:
   httpGet:
     path: /healthz
-    port: http
-  initialDelaySeconds: 10
+    port: health
+  initialDelaySeconds: 30
   periodSeconds: 30
-  timeoutSeconds: 5
+  timeoutSeconds: 10
+  failureThreshold: 3
+  successThreshold: 1
 
 readinessProbe:
   httpGet:
     path: /readyz
-    port: http
+    port: health
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  httpGet:
+    path: /livez
+    port: health
   initialDelaySeconds: 5
   periodSeconds: 10
   timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
 
-autoscaling:
-  enabled: false
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
-
-# MCP-Shield configuration (rendered into a ConfigMap)
+# ─────────────────────────────────────────────────────────────────────────────
+# Application Configuration (Rendered as ConfigMap)
+# ─────────────────────────────────────────────────────────────────────────────
 config:
   server:
     bind_addr: "0.0.0.0:8080"
@@ -98,35 +337,442 @@ config:
     enable_http: true
     enable_sse: true
     enable_stdio: false
+    request_timeout_secs: 30
+    max_request_size: 10485760  # 10MB
     server_info:
       name: "mcp-shield"
       version: "0.1.0"
-
+    graceful_shutdown_timeout: 30
+  
   auth:
-    enabled: false
-    # Set via secrets in production
+    enabled: true
+    # JWT secret (use secret in production!)
     # jwt_secret: ""
-    # jwks_url: ""
+    # JWKS URL for key rotation
+    # jwks_url: "https://auth.example.com/.well-known/jwks.json"
+    issuer: "https://auth.example.com"
+    audience: "mcp-shield"
     required_scopes:
       - "mcp:tools:read"
       - "mcp:tools:call"
-
+    # Token validation options
+    validate_audience: true
+    validate_issuer: true
+    clock_skew_tolerance_secs: 60
+    # OAuth 2.1 / OIDC
+    oidc_discovery_url: ""
+    # Protected Resource Metadata (RFC 9728)
+    prm_enabled: true
+  
   registry:
     enforce_prefix_format: true
     allowed_prefixes: []
-
+    # allowed_prefixes:
+    #   - "com.company"
+    #   - "io.internal"
+    max_tools_per_server: 1000
+    tool_registration_timeout_secs: 10
+  
+  proxy:
+    request_timeout_secs: 30
+    max_concurrent_requests: 100
+    upstream_tls_verify: true
+    upstream_ca_cert: ""
+    connect_timeout_secs: 10
+    idle_timeout_secs: 90
+    keep_alive: true
+  
   telemetry:
     metrics_path: "/metrics"
     metrics_addr: "0.0.0.0:9090"
+    health_addr: "0.0.0.0:9091"
+    # OpenTelemetry
+    otlp_endpoint: ""
+    otlp_insecure: false
+    otlp_headers: {}
+    # Kafka (Phase 2)
     kafka_bootstrap_servers: []
     kafka_topic: "mcp-shield-audit"
+    kafka_producer_config: {}
+  
+  # Rate limiting
+  rate_limit:
+    enabled: false
+    requests_per_minute: 1000
+    burst: 100
+    # Per-scope limits
+    scope_limits: {}
+  
+  # CORS
+  cors:
+    enabled: true
+    allowed_origins:
+      - "*"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "OPTIONS"
+    allowed_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "Mcp-Session-Id"
+    max_age: 86400
+  
+  # WebSocket (for MCP over WebSocket if needed)
+  websocket:
+    enabled: false
+    path: "/ws"
+    max_connections: 1000
+  
+  # Feature flags
+  features:
+    cedar_policy_engine: false
+    session_context_locking: false
+    ecpa_guardrails: false
+    egress_sanitization: false
+    postgresql_control_plane: false
+    redis_session_store: false
 
-# External dependencies (Phase 2-4)
+# ─────────────────────────────────────────────────────────────────────────────
+# Additional Configuration (merged with config above)
+# ─────────────────────────────────────────────────────────────────────────────
+extraConfig: {}
+  # Example:
+  # custom_key: "custom_value"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Variables
+# ─────────────────────────────────────────────────────────────────────────────
+env: []
+  # - name: MCP_SHIELD_CUSTOM_VAR
+  #   value: "custom_value"
+  # - name: MCP_SHIELD_SECRET_VAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: mcp-shield-secrets
+  #       key: secret-key
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment Variables from Secrets/ConfigMaps
+# ─────────────────────────────────────────────────────────────────────────────
+envFrom: []
+  # - secretRef:
+  #     name: mcp-shield-secrets
+  # - configMapRef:
+  #     name: mcp-shield-config
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Secrets Configuration (for External Secrets Operator, Vault, etc.)
+# ─────────────────────────────────────────────────────────────────────────────
+secrets:
+  # Create Kubernetes secrets (for basic usage)
+  create: false
+  # JWT secret
+  jwtSecret: ""
+  # JWKS URL
+  jwksUrl: ""
+  # Database password
+  dbPassword: ""
+  # Redis password
+  redisPassword: ""
+  # TLS certificates
+  tlsCert: ""
+  tlsKey: ""
+  tlsCa: ""
+  # Additional secrets
+  extra: {}
+  # External Secrets Operator configuration
+  externalSecrets:
+    enabled: false
+    # AWS Secrets Manager
+    aws:
+      enabled: false
+      region: us-east-1
+      secretName: mcp-shield/production
+    # HashiCorp Vault
+    vault:
+      enabled: false
+      server: "https://vault.example.com"
+      path: "secret/mcp-shield"
+      auth:
+        kubernetes:
+          role: "mcp-shield"
+    # Azure Key Vault
+    azure:
+      enabled: false
+      vaultUrl: "https://myvault.vault.azure.net"
+    # Google Secret Manager
+    gcp:
+      enabled: false
+      projectId: "my-project"
+      secretName: "mcp-shield-secrets"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes and Volume Mounts
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  - name: config
+    configMap:
+      name: "{{ include \"mcp-shield.fullname\" . }}-config"
+  - name: policies
+    configMap:
+      name: "{{ include \"mcp-shield.fullname\" . }}-policies"
+  - name: tmp
+    emptyDir:
+      sizeLimit: 100Mi
+  - name: data
+    emptyDir:
+      sizeLimit: 500Mi
+
+volumeMounts:
+  - name: config
+    mountPath: /etc/mcp-shield/config
+    readOnly: true
+  - name: policies
+    mountPath: /etc/mcp-shield/policies
+    readOnly: true
+  - name: tmp
+    mountPath: /tmp
+  - name: data
+    mountPath: /var/lib/mcp-shield/data
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Additional Containers (sidecars)
+# ─────────────────────────────────────────────────────────────────────────────
+extraContainers: []
+  # Example: OAuth2 Proxy sidecar
+  # - name: oauth2-proxy
+  #   image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+  #   args:
+  #     - --provider=oidc
+  #     - --oidc-issuer-url=https://auth.example.com
+  #     - --client-id=mcp-shield
+  #     - --client-secret=xxx
+  #   ports:
+  #     - name: oauth2-proxy
+  #       containerPort: 4180
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Init Containers
+# ─────────────────────────────────────────────────────────────────────────────
+initContainers: []
+  # Example: Wait for database
+  # - name: wait-for-db
+  #   image: busybox:1.36
+  #   command: ['sh', '-c', 'until nc -z postgres 5432; do sleep 1; done']
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Annotations
+# ─────────────────────────────────────────────────────────────────────────────
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+  # For Linkerd
+  # linkerd.io/inject: enabled
+  # For Istio
+  # sidecar.istio.io/inject: "true"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Labels
+# ─────────────────────────────────────────────────────────────────────────────
+podLabels: {}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Network Policies
+# ─────────────────────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  # Allow ingress from specific namespaces
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-shield
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9091
+  # Allow egress to specific destinations
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: cache
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: observability
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 14268
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RBAC Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+rbac:
+  create: true
+  # Additional rules for the service account
+  rules: []
+  # Example for External Secrets Operator:
+  # - apiGroups: ["externalsecrets.io"]
+  #   resources: ["externalsecrets", "secretstores"]
+  #   verbs: ["get", "list", "watch"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Service Monitor (for Prometheus Operator)
+# ─────────────────────────────────────────────────────────────────────────────
+serviceMonitor:
+  enabled: true
+  namespace: ""
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels:
+    release: prometheus
+  # metricRelabelings: []
+  # relabelings: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Monitor (for Prometheus Operator)
+# ─────────────────────────────────────────────────────────────────────────────
+podMonitor:
+  enabled: false
+  namespace: ""
+  interval: 30s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus Rules
+# ─────────────────────────────────────────────────────────────────────────────
+prometheusRules:
+  enabled: true
+  namespace: ""
+  additionalLabels:
+    release: prometheus
+  groups: []
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Grafana Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+grafanaDashboard:
+  enabled: true
+  namespace: ""
+  labels:
+    grafana_dashboard: "1"
+  # Dashboard JSON will be generated from ConfigMap
+
+# ─────────────────────────────────────────────────────────────────────────────
+# External Dependencies (Phase 2-4)
+# ─────────────────────────────────────────────────────────────────────────────
 postgresql:
   enabled: false
+  # Use external PostgreSQL
+  external:
+    enabled: false
+    host: ""
+    port: 5432
+    database: mcp_shield
+    username: mcp_shield
+    password: ""
+    sslMode: require
+  # Deploy PostgreSQL (using bitnami chart)
+  internal:
+    enabled: false
+    chart: postgresql
+    version: 15.5.0
+    repository: https://charts.bitnami.com/bitnami
 
-redpanda:
+redis:
   enabled: false
+  # Use external Redis
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    password: ""
+    db: 0
+    tls: false
+  # Deploy Redis (using bitnami chart)
+  internal:
+    enabled: false
+    chart: redis
+    version: 19.0.0
+    repository: https://charts.bitnami.com/bitnami
+
+kafka:
+  enabled: false
+  external:
+    enabled: false
+    brokers: []
+    topic: mcp-shield-audit
+    sasl:
+      enabled: false
+      username: ""
+      password: ""
+    tls:
+      enabled: false
 
 clickhouse:
   enabled: false
+  external:
+    enabled: false
+    host: ""
+    port: 8123
+    database: mcp_shield
+    username: ""
+    password: ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────────────────────────────────────────
+tests:
+  enabled: true
+  # Test image
+  image:
+    registry: docker.io
+    repository: curlimages/curl
+    tag: "8.8.0"
+    pullPolicy: IfNotPresent
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Additional Manifests
+# ─────────────────────────────────────────────────────────────────────────────
+extraManifests: []

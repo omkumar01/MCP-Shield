@@ -1,0 +1,294 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Configuration Template                                            │
+# │                                                                              │
+# │ This file is used as a template by the entrypoint script. Environment       │
+# │ variables are substituted at container startup.                             │
+# │                                                                              │
+# │ Copy to config/default.toml and customize, or set environment variables.    │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+[server]
+# Bind address for HTTP/SSE server
+bind_addr = "${MCP_SHIELD_SERVER_BIND_ADDR:-0.0.0.0:8080}"
+
+# Log level: trace, debug, info, warn, error
+log_level = "${MCP_SHIELD_SERVER_LOG_LEVEL:-info}"
+
+# Enable JSON structured logging
+json_logging = ${MCP_SHIELD_SERVER_JSON_LOGGING:-true}
+
+# Enable HTTP transport (POST /mcp)
+enable_http = ${MCP_SHIELD_ENABLE_HTTP:-true}
+
+# Enable SSE transport (GET /sse + POST /messages)
+enable_sse = ${MCP_SHIELD_ENABLE_SSE:-true}
+
+# Enable stdio transport (for local CLI)
+enable_stdio = ${MCP_SHIELD_ENABLE_STDIO:-false}
+
+# Request timeout in seconds
+request_timeout_secs = ${MCP_SHIELD_SERVER_REQUEST_TIMEOUT_SECS:-30}
+
+# Maximum request body size in bytes (10MB default)
+max_request_size = ${MCP_SHIELD_SERVER_MAX_REQUEST_SIZE:-10485760}
+
+# Graceful shutdown timeout in seconds
+graceful_shutdown_timeout = ${MCP_SHIELD_SERVER_GRACEFUL_SHUTDOWN_TIMEOUT:-30}
+
+# Server identification
+[server.server_info]
+name = "${MCP_SHIELD_SERVER_NAME:-mcp-shield}"
+version = "${MCP_SHIELD_SERVER_VERSION:-0.1.0}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Authentication & Authorization
+# ─────────────────────────────────────────────────────────────────────────────
+[auth]
+# Enable authentication
+enabled = ${MCP_SHIELD_AUTH_ENABLED:-false}
+
+# JWT HMAC secret (for HS256) - USE SECRETS IN PRODUCTION!
+# jwt_secret = "${MCP_SHIELD_AUTH_JWT_SECRET:-}"
+
+# JWKS URL for key rotation (RS256/ES256)
+# jwks_url = "${MCP_SHIELD_AUTH_JWKS_URL:-}"
+
+# Token issuer validation
+issuer = "${MCP_SHIELD_AUTH_ISSUER:-https://auth.example.com}"
+
+# Token audience validation
+audience = "${MCP_SHIELD_AUTH_AUDIENCE:-mcp-shield}"
+
+# Required OAuth scopes for all requests
+required_scopes = [
+    ${MCP_SHIELD_AUTH_REQUIRED_SCOPES:-"mcp:tools:read", "mcp:tools:call"}
+]
+
+# Validate audience claim
+validate_audience = ${MCP_SHIELD_AUTH_VALIDATE_AUDIENCE:-true}
+
+# Validate issuer claim
+validate_issuer = ${MCP_SHIELD_AUTH_VALIDATE_ISSUER:-true}
+
+# Clock skew tolerance in seconds
+clock_skew_tolerance_secs = ${MCP_SHIELD_AUTH_CLOCK_SKEW_TOLERANCE_SECS:-60}
+
+# OIDC Discovery URL for automatic configuration
+# oidc_discovery_url = "${MCP_SHIELD_AUTH_OIDC_DISCOVERY_URL:-}"
+
+# Protected Resource Metadata (RFC 9728)
+prm_enabled = ${MCP_SHIELD_AUTH_PRM_ENABLED:-true}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tool Registry
+# ─────────────────────────────────────────────────────────────────────────────
+[registry]
+# Enforce prefix:name format (reverse DNS prefix)
+enforce_prefix_format = ${MCP_SHIELD_REGISTRY_ENFORCE_PREFIX:-true}
+
+# Allowed prefixes (empty = all allowed with prefix format)
+# allowed_prefixes = [
+#     ${MCP_SHIELD_REGISTRY_ALLOWED_PREFIXES:-"com.company", "io.internal"}
+# ]
+
+# Maximum tools per upstream server
+max_tools_per_server = ${MCP_SHIELD_REGISTRY_MAX_TOOLS_PER_SERVER:-1000}
+
+# Tool registration timeout in seconds
+tool_registration_timeout_secs = ${MCP_SHIELD_REGISTRY_TOOL_REGISTRATION_TIMEOUT_SECS:-10}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Upstream Proxy
+# ─────────────────────────────────────────────────────────────────────────────
+[proxy]
+# Request timeout in seconds
+request_timeout_secs = ${MCP_SHIELD_PROXY_REQUEST_TIMEOUT_SECS:-30}
+
+# Maximum concurrent requests
+max_concurrent_requests = ${MCP_SHIELD_PROXY_MAX_CONCURRENT:-100}
+
+# Upstream server URL (for single upstream)
+upstream_url = "${MCP_SHIELD_PROXY_UPSTREAM_URL:-}"
+
+# Verify upstream TLS certificates
+upstream_tls_verify = ${MCP_SHIELD_PROXY_UPSTREAM_TLS_VERIFY:-true}
+
+# Custom CA certificate for upstream (PEM format)
+# upstream_ca_cert = "${MCP_SHIELD_PROXY_UPSTREAM_CA_CERT:-}"
+
+# Connection timeout in seconds
+connect_timeout_secs = ${MCP_SHIELD_PROXY_CONNECT_TIMEOUT_SECS:-10}
+
+# Idle connection timeout in seconds
+idle_timeout_secs = ${MCP_SHIELD_PROXY_IDLE_TIMEOUT_SECS:-90}
+
+# Enable HTTP keep-alive
+keep_alive = ${MCP_SHIELD_PROXY_KEEP_ALIVE:-true}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Telemetry & Observability
+# ─────────────────────────────────────────────────────────────────────────────
+[telemetry]
+# Prometheus metrics path
+metrics_path = "${MCP_SHIELD_TELEMETRY_METRICS_PATH:-/metrics}"
+
+# Prometheus metrics bind address
+metrics_addr = "${MCP_SHIELD_TELEMETRY_METRICS_ADDR:-0.0.0.0:9090}"
+
+# Health check bind address
+health_addr = "${MCP_SHIELD_TELEMETRY_HEALTH_ADDR:-0.0.0.0:9091}"
+
+# OpenTelemetry OTLP endpoint
+otlp_endpoint = "${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+
+# Use insecure OTLP connection (dev only)
+otlp_insecure = ${OTEL_EXPORTER_OTLP_INSECURE:-false}
+
+# OTLP headers (for authentication)
+# otlp_headers = { Authorization = "Bearer ${OTEL_EXPORTER_OTLP_TOKEN}" }
+
+# Kafka bootstrap servers (Phase 2 audit pipeline)
+# kafka_bootstrap_servers = [
+#     ${MCP_SHIELD_TELEMETRY_KAFKA_BOOTSTRAP_SERVERS:-""}
+# ]
+
+# Kafka topic for audit events
+kafka_topic = "${MCP_SHIELD_TELEMETRY_KAFKA_TOPIC:-mcp-shield-audit}"
+
+# Kafka producer configuration
+[telemetry.kafka_producer_config]
+acks = "all"
+retries = 3
+compression_type = "snappy"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rate Limiting
+# ─────────────────────────────────────────────────────────────────────────────
+[rate_limit]
+enabled = ${MCP_SHIELD_RATE_LIMIT_ENABLED:-false}
+requests_per_minute = ${MCP_SHIELD_RATE_LIMIT_REQUESTS_PER_MINUTE:-1000}
+burst = ${MCP_SHIELD_RATE_LIMIT_BURST:-100}
+
+# Per-scope rate limits (override global)
+# scope_limits = { "mcp:tools:read" = 5000, "mcp:tools:call" = 2000 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CORS
+# ─────────────────────────────────────────────────────────────────────────────
+[cors]
+enabled = ${MCP_SHIELD_CORS_ENABLED:-true}
+allowed_origins = [
+    ${MCP_SHIELD_CORS_ALLOWED_ORIGINS:-"*"}
+]
+allowed_methods = [
+    ${MCP_SHIELD_CORS_ALLOWED_METHODS:-"GET", "POST", "OPTIONS"}
+]
+allowed_headers = [
+    ${MCP_SHIELD_CORS_ALLOWED_HEADERS:-"Content-Type", "Authorization", "Mcp-Session-Id"}
+]
+max_age = ${MCP_SHIELD_CORS_MAX_AGE:-86400}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WebSocket (for MCP over WebSocket)
+# ─────────────────────────────────────────────────────────────────────────────
+[websocket]
+enabled = ${MCP_SHIELD_WEBSOCKET_ENABLED:-false}
+path = "${MCP_SHIELD_WEBSOCKET_PATH:-/ws}"
+max_connections = ${MCP_SHIELD_WEBSOCKET_MAX_CONNECTIONS:-1000}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Feature Flags (Phase 2+)
+# ─────────────────────────────────────────────────────────────────────────────
+[features]
+# Amazon Cedar Policy Engine
+cedar_policy_engine = ${MCP_SHIELD_CEDAR_ENABLED:-false}
+
+# Session Context Locking (Anti-Prompt Injection)
+session_context_locking = ${MCP_SHIELD_SESSION_LOCKING_ENABLED:-false}
+
+# ePCA Symbolic Guardrails
+ecpa_guardrails = ${MCP_SHIELD_ECPA_ENABLED:-false}
+
+# Egress Sanitization
+egress_sanitization = ${MCP_SHIELD_EGRESS_SANITIZATION_ENABLED:-false}
+
+# PostgreSQL Control Plane
+postgresql_control_plane = ${MCP_SHIELD_DB_ENABLED:-false}
+
+# Redis Session Store
+redis_session_store = ${MCP_SHIELD_REDIS_ENABLED:-false}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Database (Phase 4 - PostgreSQL Control Plane)
+# ─────────────────────────────────────────────────────────────────────────────
+# [database]
+# url = "${MCP_SHIELD_DB_URL:-postgresql://user:pass@localhost:5432/mcp_shield?sslmode=disable}"
+# max_connections = ${MCP_SHIELD_DB_MAX_CONNECTIONS:-20}
+# min_connections = ${MCP_SHIELD_DB_MIN_CONNECTIONS:-5}
+# connect_timeout = ${MCP_SHIELD_DB_CONNECT_TIMEOUT:-30}
+# idle_timeout = ${MCP_SHIELD_DB_IDLE_TIMEOUT:-600}
+# max_lifetime = ${MCP_SHIELD_DB_MAX_LIFETIME:-1800}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Redis (Phase 4 - Session Store, Rate Limiting)
+# ─────────────────────────────────────────────────────────────────────────────
+# [redis]
+# url = "${MCP_SHIELD_REDIS_URL:-redis://localhost:6379/0}"
+# max_connections = ${MCP_SHIELD_REDIS_MAX_CONNECTIONS:-50}
+# connect_timeout = ${MCP_SHIELD_REDIS_CONNECT_TIMEOUT:-10}
+# command_timeout = ${MCP_SHIELD_REDIS_COMMAND_TIMEOUT:-5}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TLS/SSL
+# ─────────────────────────────────────────────────────────────────────────────
+# [tls]
+# cert_file = "${MCP_SHIELD_TLS_CERT_FILE:-/etc/mcp-shield/tls/tls.crt}"
+# key_file = "${MCP_SHIELD_TLS_KEY_FILE:-/etc/mcp-shield/tls/tls.key}"
+# ca_file = "${MCP_SHIELD_TLS_CA_FILE:-/etc/mcp-shield/tls/ca.crt}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging (Advanced)
+# ─────────────────────────────────────────────────────────────────────────────
+# [logging]
+# level = "${MCP_SHIELD_SERVER_LOG_LEVEL:-info}"
+# format = "${MCP_SHIELD_LOG_FORMAT:-json}"
+# output = "stdout"
+# sampling = false
+# sampling_rate = 1.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Metrics (Advanced)
+# ─────────────────────────────────────────────────────────────────────────────
+# [metrics]
+# enabled = true
+# path = "/metrics"
+# addr = "0.0.0.0:9090"
+# buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Circuit Breaker (Advanced)
+# ─────────────────────────────────────────────────────────────────────────────
+# [circuit_breaker]
+# enabled = true
+# failure_threshold = 5
+# success_threshold = 2
+# timeout = 30
+# half_open_requests = 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Policy Engine (Phase 2 - Cedar)
+# ─────────────────────────────────────────────────────────────────────────────
+# [policy]
+# enabled = false
+# policy_dir = "/etc/mcp-shield/policies"
+# evaluation_mode = "allow"  # allow, deny, audit
+# cache_ttl_secs = 60
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Guardrails (Phase 3)
+# ─────────────────────────────────────────────────────────────────────────────
+# [guardrails]
+# ecpa_enabled = false
+# egress_enabled = false
+# pii_detection = true
+# secret_detection = true

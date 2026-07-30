@@ -1,0 +1,112 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield NetworkPolicies                                                   │
+# │                                                                              │
+# │ Implements least-privilege network segmentation.                             │
+# │ Requires CNI plugin that supports NetworkPolicy (Calico, Cilium, etc.)       │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-ingress
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- range .Values.networkPolicy.ingress }}
+    - from:
+        {{- range .from }}
+        - {{- toYaml . | nindent 10 }}
+        {{- end }}
+      ports:
+        {{- range .ports }}
+        - protocol: {{ .protocol }}
+          port: {{ .port }}
+        {{- end }}
+    {{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-egress
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    {{- range .Values.networkPolicy.egress }}
+    - to:
+        {{- range .to }}
+        - {{- toYaml . | nindent 10 }}
+        {{- end }}
+      ports:
+        {{- range .ports }}
+        - protocol: {{ .protocol }}
+          port: {{ .port }}
+        {{- end }}
+    {{- end }}
+
+---
+# Allow DNS resolution (required for service discovery)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-dns
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Allow metrics scraping from Prometheus namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-prometheus
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - namespaceSelector:
+            matchLabels:
+              prometheus: "true"
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9091
+{{- end }}

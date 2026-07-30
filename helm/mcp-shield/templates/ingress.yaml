@@ -1,0 +1,106 @@
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ MCP-Shield Ingress                                                           │
+# │                                                                              │
+# │ Supports: NGINX, Traefik, Envoy Gateway, AWS ALB, GCP Cloud Armor           │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ingress.labels }}
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.defaultBackend.enabled }}
+  defaultBackend:
+    service:
+      name: {{ .Values.ingress.defaultBackend.serviceName }}
+      port:
+        number: {{ .Values.ingress.defaultBackend.servicePort }}
+  {{- end }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "mcp-shield.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+    {{- end }}
+---
+{{- end }}
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ IngressClass (for NGINX, Traefik, Envoy)                                     │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if and .Values.ingress.enabled (not .Values.ingress.className) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: mcp-shield
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "false"
+spec:
+  controller: k8s.io/ingress-nginx
+  parameters:
+    apiGroup: ingress-nginx.k8s.io
+    kind: IngressController
+    name: mcp-shield
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │ TLS Certificates (if cert-manager is used)                                   │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+{{- if and .Values.ingress.enabled .Values.ingress.tls .Values.ingress.certManager.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "mcp-shield.fullname" . }}-tls
+  labels:
+    {{- include "mcp-shield.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "mcp-shield.fullname" . }}-tls
+  issuerRef:
+    name: {{ .Values.ingress.certManager.issuerName }}
+    kind: {{ .Values.ingress.certManager.issuerKind | default "ClusterIssuer" }}
+    group: cert-manager.io
+  dnsNames:
+    {{- range .Values.ingress.hosts }}
+    - {{ .host }}
+    {{- end }}
+  {{- if .Values.ingress.certManager.duration }}
+  duration: {{ .Values.ingress.certManager.duration }}
+  {{- end }}
+  {{- if .Values.ingress.certManager.renewBefore }}
+  renewBefore: {{ .Values.ingress.certManager.renewBefore }}
+  {{- end }}
+  {{- if .Values.ingress.certManager.privateKey }}
+  privateKey: {{ toYaml .Values.ingress.certManager.privateKey | nindent 4 }}
+  {{- end }}
+{{- end }}
