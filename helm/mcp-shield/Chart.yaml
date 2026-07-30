@@ -1,0 +1,18 @@
+apiVersion: v2
+name: mcp-shield
+description: Layer 7 protocol-aware security gateway for the Model Context Protocol (MCP)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/mcp-shield/mcp-shield
+sources:
+  - https://github.com/mcp-shield/mcp-shield
+maintainers:
+  - name: MCP-Shield Team
+keywords:
+  - mcp
+  - security
+  - gateway
+  - json-rpc
+  - oauth
+  - cedar

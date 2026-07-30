@@ -1,0 +1,59 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Cargo
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+*.profraw
+*.profdata
+
+# Documentation
+docs/_build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.p12
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Helm
+helm/mcp-shield/charts/
+helm/mcp-shield/Chart.lock

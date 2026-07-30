@@ -1,0 +1,92 @@
+# MCP-Shield Default Configuration
+# ==================================
+# This configuration is loaded at startup. Environment variables override
+# these values (e.g., MCP_SHIELD_SERVER_BIND_ADDR=0.0.0.0:9090).
+
+[server]
+# Listen address for the HTTP server (Streamable HTTP + SSE)
+bind_addr = "0.0.0.0:8080"
+
+# Log level: trace, debug, info, warn, error
+log_level = "info"
+
+# Use structured JSON logging (recommended for production)
+json_logging = true
+
+# CORS origins (empty = allow all)
+cors_origins = []
+
+# Enable transports
+enable_stdio = false
+enable_http = true
+enable_sse = true
+
+[server.server_info]
+name = "mcp-shield"
+version = "0.1.0"
+instructions = "MCP-Shield security gateway. All requests are validated, authenticated, and authorized."
+
+[auth]
+# WARNING: Set to true in production
+enabled = false
+
+# JWT secret for HMAC signing (HS256). Mutually exclusive with jwks_url.
+# For production, set this via MCP_SHIELD_AUTH_JWT_SECRET environment variable.
+# jwt_secret = "change-me-in-production"
+
+# JWKS URL for RSA/EC key rotation (RS256, ES256, etc.)
+# jwks_url = "https://auth.example.com/.well-known/jwks.json"
+
+# Expected token issuer
+# issuer = "https://auth.example.com"
+
+# Expected audience
+# audience = "mcp-shield"
+
+# URL for the Protected Resource Metadata document
+prm_url = "/.well-known/oauth-protected-resource"
+
+# Authorization server URL for OIDC discovery
+# authorization_server = "https://auth.example.com"
+
+# Required OAuth 2.1 scopes
+required_scopes = [
+    "mcp:tools:read",
+    "mcp:tools:call",
+]
+
+[proxy]
+# Request timeout per upstream call (seconds)
+request_timeout_secs = 30
+
+# Maximum concurrent requests per upstream
+max_concurrent_requests = 100
+
+# Upstream MCP servers (uncomment to configure)
+# [proxy.upstreams.github]
+# transport = "streamable_http"
+# url = "https://mcp.github.example.com/mcp"
+#
+# [proxy.upstreams.filesystem]
+# transport = "stdio"
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+
+[registry]
+# Enforce strict reverse-DNS prefix format for tool names
+enforce_prefix_format = true
+
+# Allowed namespace prefixes (empty = allow all)
+# allowed_prefixes = ["com.example", "io.github"]
+
+[telemetry]
+# Prometheus metrics configuration
+metrics_path = "/metrics"
+metrics_addr = "0.0.0.0:9090"
+
+# Redpanda/Kafka configuration for audit logging (Phase 2)
+# kafka_bootstrap_servers = ["localhost:9092"]
+# kafka_topic = "mcp-shield-audit"
+
+# ClickHouse URL for long-term forensic storage (Phase 2)
+# clickhouse_url = "clickhouse://localhost:9000/mcp_shield"
