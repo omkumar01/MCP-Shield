@@ -4,10 +4,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mcp-shield.fullname" . }}
+  name: {{ include 'mcp-shield.fullname' . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "mcp-shield.labels" . | nindent 4 }}
+    {{- include 'mcp-shield.labels' . | nindent 4 }}
   {{- with .Values.global.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -18,17 +18,17 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "mcp-shield.selectorLabels" . | nindent 6 }}
+      {{- include 'mcp-shield.selectorLabels' . | nindent 6 }}
   strategy:
     type: {{ .Values.updateStrategy.type }}
-    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    {{- if eq .Values.updateStrategy.type 'RollingUpdate' }}
     rollingUpdate:
       {{- toYaml .Values.updateStrategy.rollingUpdate | nindent 6 }}
     {{- end }}
   template:
     metadata:
       labels:
-        {{- include "mcp-shield.selectorLabels" . | nindent 8 }}
+        {{- include 'mcp-shield.selectorLabels' . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -44,11 +44,11 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with include "mcp-shield.imagePullSecrets" . }}
+      {{- with include 'mcp-shield.imagePullSecrets' . }}
       imagePullSecrets:
         {{- . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "mcp-shield.serviceAccountName" . }}
+      serviceAccountName: {{ include 'mcp-shield.serviceAccountName' . }}
       {{- with .Values.global.priorityClassName }}
       priorityClassName: {{ . }}
       {{- end }}
@@ -87,7 +87,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: '{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}'
           {{- with .Values.image.digest }}
           imageDigest: {{ . }}
           {{- end }}
@@ -114,11 +114,11 @@ spec:
             - name: RUST_LOG
               value: {{ .Values.config.server.log_level | quote }}
             - name: RUST_BACKTRACE
-              value: "1"
+              value: '1'
             - name: OTEL_SERVICE_NAME
               value: {{ include 'mcp-shield.fullname' . }}
             - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "service.name={{ include 'mcp-shield.fullname' . }},deployment.environment={{ .Values.global.environment }},kubernetes.namespace={{ .Release.Namespace }},kubernetes.pod.name=$(POD_NAME)"
+              value: 'service.name={{ include 'mcp-shield.fullname' . }},deployment.environment={{ .Values.global.environment }},kubernetes.namespace={{ .Release.Namespace }},kubernetes.pod.name=$(POD_NAME)'
           {{- with .Values.env }}
           {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -127,7 +127,7 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
             - configMapRef:
-                name: {{ include "mcp-shield.fullname" . }}-config
+                name: {{ include 'mcp-shield.fullname' . }}-config
                 optional: true
           {{- with .Values.livenessProbe }}
           livenessProbe:
@@ -156,13 +156,13 @@ spec:
         {{- end }}
         - name: config
           configMap:
-            name: {{ include "mcp-shield.fullname" . }}-config
+            name: {{ include 'mcp-shield.fullname' . }}-config
             items:
               - key: default.toml
                 path: default.toml
         - name: policies
           configMap:
-            name: {{ include "mcp-shield.fullname" . }}-policies
+            name: {{ include 'mcp-shield.fullname' . }}-policies
             items:
               - key: default.cedar
                 path: default.cedar
