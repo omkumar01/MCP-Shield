@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libclang-dev \
     clang \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -57,7 +58,7 @@ RUN mkdir -p src && \
 # Use --locked for reproducible builds
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --locked || true
+    cargo build --release --locked --verbose 2>&1 | tee /build/deps-build.log || true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 2: Build Application
@@ -70,6 +71,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libclang-dev \
     clang \
+    librdkafka-dev \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
@@ -89,9 +91,13 @@ COPY policies/ ./policies/
 # Use BuildKit cache mounts for faster incremental builds
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --locked && \
-    BIN=$(find target/release -maxdepth 1 -type f \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) | head -n 1) && \
-    test -n "$BIN" && \
+    cargo build --release --locked --verbose 2>&1 | tee /build/build.log && \
+    BIN=$(find target/release -maxdepth 1 -type f -executable \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) 2>/dev/null | head -n 1) && \
+    if [ -z "$BIN" ]; then \
+        echo "ERROR: Binary not found in target/release/"; \
+        ls -la target/release/; \
+        exit 1; \
+    fi && \
     cp "$BIN" /build/mcp-shield && \
     strip /build/mcp-shield
 
