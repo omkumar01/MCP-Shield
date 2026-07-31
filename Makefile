@@ -16,7 +16,7 @@ PROJECT_VERSION := $(shell cargo metadata --format-version=1 2>/dev/null | jq -r
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-RUST_VERSION := 1.89.0
+RUST_VERSION := 1.97
 
 # Docker configuration
 DOCKER_REGISTRY ?= ghcr.io

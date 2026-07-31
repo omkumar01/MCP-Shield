@@ -32,7 +32,7 @@ MCP-Shield intercepts, validates, and authorizes all traffic between MCP Hosts (
 
 ### Prerequisites
 
-- **Rust 1.89+** (MSVC toolchain requires Visual Studio Build Tools with C++ workload)
+- **Rust 1.97+** (MSVC toolchain requires Visual Studio Build Tools with C++ workload)
 - **Visual Studio Build Tools** (for MSVC) or **mingw-w64** (for GNU)
 
 ```bash

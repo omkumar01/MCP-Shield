@@ -61,7 +61,7 @@ MCP-Shield is a Layer 7 protocol-aware security gateway for the Model Context Pr
 ### Software Dependencies
 
 #### For Local Development
-- **Rust** 1.89+ (via `rustup`)
+- **Rust** 1.97+ (via `rustup`)
 - **Docker** 24+ and **Docker Compose** 2+
 - **Git** 2.40+
 - **Make** 4.3+
@@ -91,7 +91,7 @@ git clone https://github.com/mcp-shield/mcp-shield
 cd mcp-shield
 
 # Install Rust toolchain
-rustup toolchain install 1.89
+rustup toolchain install 1.97
 
 # Build and run
 cargo build --release

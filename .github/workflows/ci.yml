@@ -35,7 +35,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  RUST_VERSION: "1.89.0"
+  RUST_VERSION: "1.97"
   CARGO_TERM_COLOR: always
 
 # ─────────────────────────────────────────────────────────────────────────────
