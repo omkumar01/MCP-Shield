@@ -78,8 +78,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Copy cached dependencies
-# COPY --from=deps /build/target ./target
-# COPY --from=deps /usr/local/cargo/registry /usr/local/cargo/registry
+COPY --from=deps /build/target ./target
+COPY --from=deps /usr/local/cargo/registry /usr/local/cargo/registry
 
 # Copy actual source code
 COPY Cargo.toml Cargo.lock* ./
