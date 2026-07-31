@@ -4,7 +4,7 @@
 //! fine-grained access control to limit the blast radius of any single
 //! token.
 
-use crate::error::{McpError, SCOPE_DENIED};
+use crate::error::McpError;
 use crate::protocol::message;
 use std::collections::HashSet;
 

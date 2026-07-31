@@ -21,7 +21,7 @@ use async_trait::async_trait;
 pub use cedar_policy::Decision;
 use cedar_policy::{
     Authorizer, Context, Entities, Entity, EntityAttrEvaluationError, EntityUid, ParseErrors,
-    PolicyId, PolicySet, Request, RequestValidationError, RestrictedExpression,
+    PolicySet, Request, RequestValidationError, RestrictedExpression,
     RestrictedExpressionParseError, entities_errors::EntitiesError,
 };
 use serde::{Deserialize, Serialize};

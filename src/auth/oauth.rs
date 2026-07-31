@@ -7,7 +7,6 @@
 
 use axum::{
     Json, Router,
-    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,

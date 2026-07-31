@@ -241,6 +241,6 @@ mod tests {
         let id1 = StreamableHttpState::generate_session_id();
         let id2 = StreamableHttpState::generate_session_id();
         assert_ne!(id1, id2);
-        assert!(id1.len() > 0);
+        assert!(!id1.is_empty());
     }
 }

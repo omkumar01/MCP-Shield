@@ -6,7 +6,10 @@
 use crate::error::McpError;
 use jsonwebtoken::{Algorithm, DecodingKey, Header, TokenData, Validation, decode, decode_header};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use serde_json::{Value, json};
+#[cfg(not(test))]
+use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;

@@ -4,9 +4,10 @@
 //! and rejecting ambiguous underscore-only concatenation. This neutralizes
 //! a class of attacks where malicious servers overwrite legitimate tools.
 
-use crate::error::{McpError, REGISTRY_COLLISION};
+use crate::error::McpError;
 use crate::protocol::message::Tool;
-use serde_json::{Value, json};
+#[cfg(test)]
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;

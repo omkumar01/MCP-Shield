@@ -6,11 +6,11 @@
 //! and upstream forwarding.
 
 use crate::auth::scope::ScopeEnforcer;
-use crate::error::{METHOD_NOT_FOUND, McpError, RequestId};
+use crate::error::{McpError, RequestId};
 use crate::gateway::proxy::UpstreamProxy;
 use crate::gateway::registry::ToolRegistry;
-use crate::guardrail::{EcpaGuardrail, EgressInspector, InspectableResult};
-use crate::policy::{CedarAuthorizer, CedarError};
+use crate::guardrail::{EcpaGuardrail, EgressInspector};
+use crate::policy::CedarAuthorizer;
 use crate::protocol::jsonrpc::JsonRpcMessage;
 use crate::protocol::message::*;
 use crate::protocol::schema::SchemaValidator;

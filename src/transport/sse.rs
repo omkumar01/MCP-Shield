@@ -69,7 +69,7 @@ pub async fn handle_sse_get(
 ) -> Response {
     let client_id = query
         .client_id
-        .unwrap_or_else(|| SseState::generate_client_id());
+        .unwrap_or_else(SseState::generate_client_id);
 
     tracing::info!(client_id = %client_id, "New SSE client connected");
 
