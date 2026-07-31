@@ -4,8 +4,8 @@
 //! using the `jsonschema` crate. Handles unsupported dialect detection and
 //! graceful fallback.
 
-use crate::error::{INVALID_PARAMS, McpError, SCHEMA_INVALID};
-use serde_json::{Value, json};
+use crate::error::McpError;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;

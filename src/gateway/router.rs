@@ -173,7 +173,7 @@ impl McpRouter {
         let start = Instant::now();
 
         // Extract fields we need for audit logging before the match consumes the message
-        let request_id = message.id().map(|id| id.to_string());
+        let _request_id = message.id().map(|id| id.to_string());
         let message_value = message.to_value(); // Clone for audit
         let message_for_audit = message.clone(); // Keep a clone for the match
 

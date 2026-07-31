@@ -7,15 +7,14 @@
 //! - POST `/messages` sends client → server messages
 
 use crate::auth::scope::ScopeEnforcer;
-use crate::error::McpError;
 use crate::gateway::router::McpRouter;
 use crate::protocol::jsonrpc::{JsonRpcErrorObj, JsonRpcMessage};
 use axum::Json;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
-use futures::stream::{self, Stream};
+use futures::stream::{self};
 use serde_json::json;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -156,7 +155,7 @@ pub async fn handle_sse_post(
 
     let raw: serde_json::Value = match serde_json::from_str(body_str) {
         Ok(v) => v,
-        Err(e) => {
+        Err(_e) => {
             // Send parse error back over SSE
             let _ = tx.send(JsonRpcMessage::parse_error_response()).await;
             return (StatusCode::ACCEPTED, "").into_response();

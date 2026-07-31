@@ -185,7 +185,7 @@ impl JwtValidator {
     /// Extract typed claims from the raw token data.
     fn extract_claims(
         &self,
-        header: &Header,
+        _header: &Header,
         token_data: &TokenData<Value>,
     ) -> Result<JwtClaims, McpError> {
         let claims = &token_data.claims;

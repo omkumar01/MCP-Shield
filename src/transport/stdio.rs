@@ -8,9 +8,9 @@ use crate::auth::scope::ScopeEnforcer;
 use crate::error::McpError;
 use crate::gateway::router::McpRouter;
 use crate::protocol::jsonrpc::JsonRpcMessage;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, Write};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader, Stdin, Stdout};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader, Stdout};
 use tokio::sync::Mutex;
 
 /// The stdio transport handler.

@@ -164,10 +164,10 @@ pub struct InMemoryControlPlane {
 impl InMemoryControlPlane {
     /// Create a new in-memory control plane with default tenant.
     pub fn new() -> Self {
-        let tenants = RwLock::new(HashMap::<String, Tenant>::new());
-        let policies = RwLock::new(HashMap::<String, PolicyEntry>::new());
-        let upstreams = RwLock::new(HashMap::<String, UpstreamEntry>::new());
-        let rate_limit_rules = RwLock::new(HashMap::<String, RateLimitRule>::new());
+        let _tenants = RwLock::new(HashMap::<String, Tenant>::new());
+        let _policies = RwLock::new(HashMap::<String, PolicyEntry>::new());
+        let _upstreams = RwLock::new(HashMap::<String, UpstreamEntry>::new());
+        let _rate_limit_rules = RwLock::new(HashMap::<String, RateLimitRule>::new());
 
         let mut tenant_map = HashMap::new();
         let default_tenant = Tenant {
@@ -322,8 +322,8 @@ pub use postgres::PostgresControlPlane;
 /// Returns an `InMemoryControlPlane` by default, or `PostgresControlPlane` if the
 /// `postgres` feature is enabled and `DATABASE_URL` is set.
 pub async fn create_control_plane(
-    database_url: Option<String>,
-    cache_ttl_secs: u64,
+    _database_url: Option<String>,
+    _cache_ttl_secs: u64,
 ) -> Result<Arc<dyn ControlPlane>, ControlPlaneError> {
     #[cfg(feature = "postgres")]
     {

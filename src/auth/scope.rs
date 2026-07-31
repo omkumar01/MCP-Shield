@@ -78,7 +78,7 @@ impl ScopeEnforcer {
             return Ok(());
         }
 
-        let required_scope = match method {
+        let _required_scope = match method {
             message::METHOD_INITIALIZE | message::METHOD_INITIALIZED | message::METHOD_PING => {
                 return Ok(()); // Always allowed
             }

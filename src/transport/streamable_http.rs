@@ -5,9 +5,8 @@
 //! the `Mcp-Session-Id` HTTP header.
 
 use crate::auth::scope::ScopeEnforcer;
-use crate::error::{McpError, RequestId};
 use crate::gateway::router::McpRouter;
-use crate::protocol::jsonrpc::{JsonRpcErrorObj, JsonRpcMessage};
+use crate::protocol::jsonrpc::JsonRpcMessage;
 use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
