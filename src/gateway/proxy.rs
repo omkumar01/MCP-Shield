@@ -209,7 +209,7 @@ impl UpstreamProxy {
                 json!({
                     "tools": [
                         {
-                            "name": "com.echo.echo",
+                            "name": "com.echo:echo",
                             "description": "Echoes back the input message",
                             "inputSchema": {
                                 "type": "object",
@@ -220,7 +220,7 @@ impl UpstreamProxy {
                             }
                         },
                         {
-                            "name": "com.echo.add",
+                            "name": "com.echo:add",
                             "description": "Adds two numbers together",
                             "inputSchema": {
                                 "type": "object",
@@ -232,7 +232,7 @@ impl UpstreamProxy {
                             }
                         },
                         {
-                            "name": "com.echo.get_time",
+                            "name": "com.echo:get_time",
                             "description": "Returns the current server time",
                             "inputSchema": {
                                 "type": "object",
@@ -252,7 +252,7 @@ impl UpstreamProxy {
                 let arguments = params.get("arguments").cloned().unwrap_or(Value::Null);
 
                 match tool_name {
-                    "com.echo.echo" => {
+                    "com.echo:echo" => {
                         let msg = arguments
                             .get("message")
                             .and_then(|v| v.as_str())
@@ -266,7 +266,7 @@ impl UpstreamProxy {
                             ]
                         })
                     }
-                    "com.echo.add" => {
+                    "com.echo:add" => {
                         let a = arguments.get("a").and_then(|v| v.as_i64()).unwrap_or(0);
                         let b = arguments.get("b").and_then(|v| v.as_i64()).unwrap_or(0);
                         json!({
@@ -278,7 +278,7 @@ impl UpstreamProxy {
                             ]
                         })
                     }
-                    "com.echo.get_time" => {
+                    "com.echo:get_time" => {
                         json!({
                             "content": [
                                 {
@@ -377,7 +377,7 @@ mod tests {
             JsonRpcMessage::Success { result, .. } => {
                 let tools = result["tools"].as_array().unwrap();
                 assert_eq!(tools.len(), 3);
-                assert_eq!(tools[0]["name"], "com.echo.echo");
+                assert_eq!(tools[0]["name"], "com.echo:echo");
             }
             _ => panic!("Expected Success response"),
         }
@@ -391,7 +391,7 @@ mod tests {
             id: RequestId::Integer(3),
             method: "tools/call".to_string(),
             params: Some(json!({
-                "name": "com.echo.echo",
+                "name": "com.echo:echo",
                 "arguments": {"message": "hello world"}
             })),
         };

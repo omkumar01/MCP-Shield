@@ -118,7 +118,7 @@ pub async fn handle_mcp_post(
     // Route the message through the gateway pipeline
     let routing_result = state
         .router
-        .handle_message(message, &state.scope_enforcer)
+        .handle_message(message, &state.scope_enforcer, session_id.as_deref())
         .await;
 
     // Handle notifications (no response body, return 202)

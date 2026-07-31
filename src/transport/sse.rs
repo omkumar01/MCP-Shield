@@ -181,7 +181,7 @@ pub async fn handle_sse_post(
     // Route through the gateway pipeline
     match state
         .router
-        .handle_message(message, &state.scope_enforcer)
+        .handle_message(message, &state.scope_enforcer, Some(&client_id))
         .await
     {
         Ok(response) => {

@@ -7,9 +7,10 @@ pub mod ecpa;
 pub mod egress;
 
 pub use ecpa::{
-    ConstraintResult, EcpaError, EcpaGuardrail, PredicateEvaluation, RuleEcpaGuardrail,
-    StubEcpaGuardrail, ToolConstraint,
+    ConstraintBuilder, ConstraintLoader, ConstraintResult, EcpaError, EcpaGuardrail,
+    PredicateEvaluation, RuleEcpaGuardrail, StubEcpaGuardrail, ToolConstraint,
 };
 pub use egress::{
-    EgressInspector, GuardrailError, InjectionPattern, PatternEgressInspector, PatternType,
+    EgressInspector, GuardrailError, InjectionPattern, InspectableResult, InspectionResult,
+    PatternEgressInspector, PatternType, StubEgressInspector,
 };

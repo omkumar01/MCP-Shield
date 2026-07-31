@@ -53,6 +53,24 @@ async-trait = "0.1"
 futures = "0.3"
 tokio-stream = "0.1"
 
+# Phase 2–4 optional heavy dependencies (behind feature gates)
+regex = "1"
+rdkafka = { version = "0.36", optional = true }
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio", "tls-rustls", "postgres", "macros",
+    "chrono", "json", "uuid",
+], optional = true }
+clickhouse-rs = { version = "0.1", optional = true }
+
+[features]
+default = []
+## Phase 2: real Kafka/Redpanda audit producer (requires librdkafka C library)
+kafka = ["dep:rdkafka"]
+## Phase 4: real PostgreSQL control plane (requires no extra C libs, pure TLS)
+postgres = ["dep:sqlx"]
+## Phase 2/4: ClickHouse forensic audit sink
+clickhouse = ["dep:clickhouse-rs"]
+
 [dev-dependencies]
 tokio-test = "0.4"
 axum-test = "16"

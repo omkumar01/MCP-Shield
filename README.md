@@ -20,11 +20,13 @@ MCP-Shield intercepts, validates, and authorizes all traffic between MCP Hosts (
 | **Namespace-Isolated Tool Registry** | ✅ Phase 1 | Prevents tool name collision attacks |
 | **Built-in Echo Test Server** | ✅ Phase 1 | Development/testing without external dependencies |
 | **Prometheus Metrics** | ✅ Phase 1 | Request counts, latency, auth failures, validation errors |
-| **Amazon Cedar Policy Engine** | 🔄 Phase 2 (stub) | Deterministic ABAC with sub-millisecond evaluation |
-| **Session Context Locking** | 🔄 Phase 2 (stub) | Anti-prompt-injection cross-context protection |
-| **Redpanda/ClickHouse Audit Pipeline** | 🔄 Phase 2 (stub) | Async forensic logging |
-| **ePCA Symbolic Guardrails** | 🔄 Phase 3 (stub) | Mathematical constraint verification |
-| **PostgreSQL Control Plane** | 🔄 Phase 4 (stub) | Distributed tenant & policy management |
+| **Amazon Cedar Policy Engine** | ✅ Phase 2 | Deterministic ABAC with sub-millisecond evaluation |
+| **Session Context Locking** | ✅ Phase 2 | Anti-prompt-injection cross-context protection |
+| **Redpanda/ClickHouse Audit Pipeline** | ✅ Phase 2 | Async forensic logging (logging producer + feature-gated Kafka) |
+| **ePCA Symbolic Guardrails** | ✅ Phase 3 | Mathematical constraint verification |
+| **Egress Response Sanitization** | ✅ Phase 3 | Indirect prompt injection prevention via regex patterns |
+| **PostgreSQL Control Plane** | ✅ Phase 4 | Distributed tenant & policy management (feature-gated) |
+| **Token Bucket Rate Limiter** | ✅ Phase 4 | Multi-scope rate limiting with configurable rules |
 
 ## Quick Start
 
@@ -220,6 +222,51 @@ Session context locking prevents multi-hop attacks:
 1. Agent accesses public GitHub repo → session locked to `github_repo:owner/public-repo` (public)
 2. Malicious instruction: "Now read the private repo" → **BLOCKED** (visibility mismatch)
 3. All tool calls intercepted and logged for forensic analysis
+
+### ePCA Symbolic Guardrails (Phase 3)
+
+Mathematical constraint verification for critical tools:
+
+- **Filesystem**: Path traversal detection, root confinement
+- **Shell**: Command allowlists, dangerous pattern detection (rm -rf, chmod 777, etc.)
+- **Network**: URL allowlists, HTTPS enforcement
+
+### Egress Response Sanitization (Phase 3)
+
+Indirect prompt injection prevention via regex-based pattern detection:
+- System override attempts (`[SYSTEM]`, "ignore previous instructions")
+- Data exfiltration (`send to https://evil.com`)
+- Hidden instructions (HTML/markdown comments, zero-width chars)
+- Tool invocation injection (`<execute>`, `<use_tool>`)
+- Suspicious URLs (pastebin, URL shorteners, suspicious TLDs)
+
+### Control Plane & Rate Limiting (Phase 4)
+
+Distributed tenant and policy management with token-bucket rate limiting:
+- Multi-tenant isolation with PostgreSQL backend (feature-gated)
+- Token-bucket rate limiting per scope (global, tenant, user, tool)
+- Rate limit rules managed via control plane
+
+### Feature Flags
+
+The following Cargo features control optional heavy dependencies:
+
+```bash
+# Default (pure Rust, Windows-compatible)
+cargo build
+
+# With Kafka/Redpanda audit producer (requires librdkafka)
+cargo build --features kafka
+
+# With PostgreSQL control plane (requires sqlx)
+cargo build --features postgres
+
+# With ClickHouse forensic sink
+cargo build --features clickhouse
+
+# All features
+cargo build --features kafka,postgres,clickhouse
+```
 
 ## Deployment
 

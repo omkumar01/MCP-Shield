@@ -197,6 +197,21 @@ path = "${MCP_SHIELD_WEBSOCKET_PATH:-/ws}"
 max_connections = ${MCP_SHIELD_WEBSOCKET_MAX_CONNECTIONS:-1000}
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Policy Engine (Phase 2 - Cedar)
+# ─────────────────────────────────────────────────────────────────────────────
+[policy]
+enabled = ${MCP_SHIELD_POLICY_ENABLED:-false}
+policy_file = "${MCP_SHIELD_POLICY_FILE:-policies/default.cedar}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Guardrails (Phase 3)
+# ─────────────────────────────────────────────────────────────────────────────
+[guardrails]
+ecpa_enabled = ${MCP_SHIELD_GUARDRAILS_ECPA_ENABLED:-false}
+egress_enabled = ${MCP_SHIELD_GUARDRAILS_EGRESS_ENABLED:-false}
+session_locking = ${MCP_SHIELD_GUARDRAILS_SESSION_LOCKING:-false}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Feature Flags (Phase 2+)
 # ─────────────────────────────────────────────────────────────────────────────
 [features]

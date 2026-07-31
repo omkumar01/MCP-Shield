@@ -4,13 +4,20 @@
 //! and serves requests over the configured transports.
 
 use axum::Router;
-use axum::routing::{delete, get, post};
+use axum::routing::{get, post};
 use mcp_shield::{
     EchoServer,
     auth::ScopeEnforcer,
     config::Config,
+    control_plane::create_control_plane,
     gateway::{McpRouter, ToolRegistry, UpstreamProxy, UpstreamServer, UpstreamTransport},
-    telemetry::{McpMetrics, install_prometheus_exporter},
+    policy::{CedarAuthorizer, CedarPolicyAuthorizer},
+    session::state::InMemorySessionManager,
+    telemetry::{
+        McpMetrics, install_prometheus_exporter,
+        producer::LoggingProducer,
+        rate_limiter::{RateLimiter, TokenBucketRateLimiter},
+    },
     transport::{SseState, StdioTransport, StreamableHttpState},
 };
 use std::path::PathBuf;
@@ -98,16 +105,120 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await;
     }
 
-    // ── 6. Initialize the router ───────────────────────────────────────
-    let router = Arc::new(McpRouter::new(
+    // ── 6. Initialize Cedar authorizer (Phase 2) ──────────────────────────
+    let authorizer: Option<Arc<dyn CedarAuthorizer>> = if config.policy.enabled {
+        tracing::info!("Cedar policy evaluation enabled");
+        let policy_path = PathBuf::from(&config.policy.policy_file);
+        if policy_path.exists() {
+            match CedarPolicyAuthorizer::from_file(&policy_path) {
+                Ok(authz) => Some(Arc::new(authz)),
+                Err(e) => {
+                    tracing::error!(error = %e, "Failed to load Cedar policies");
+                    return Err(e.into());
+                }
+            }
+        } else {
+            tracing::warn!("Policy file not found: {}", config.policy.policy_file);
+            None
+        }
+    } else {
+        tracing::debug!("Cedar policy evaluation disabled");
+        None
+    };
+
+    // ── 6b. Initialize session manager for context locking (Phase 2) ───────
+    let sessions: Option<Arc<dyn mcp_shield::session::state::SessionManager>> =
+        if config.guardrails.session_locking {
+            tracing::info!("Session context locking enabled");
+            Some(Arc::new(InMemorySessionManager::new()))
+        } else {
+            tracing::debug!("Session context locking disabled");
+            None
+        };
+
+    // ── 6c. Initialize audit producer (Phase 2) ───────────────────────────
+    let audit_producer: Option<Arc<dyn mcp_shield::telemetry::producer::EventProducer>> =
+        Some(Arc::new(LoggingProducer));
+    tracing::info!("Audit logging enabled (LoggingProducer)");
+
+    // ── 6d. Initialize control plane (Phase 4) ────────────────────────────
+    let control_plane = create_control_plane(
+        std::env::var("DATABASE_URL").ok(),
+        config.telemetry.kafka_bootstrap_servers.len() as u64, // reuse as cache TTL for now
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to initialize control plane");
+        e
+    })?;
+    tracing::info!("Control plane initialized");
+
+    // Load rate limit rules from control plane and initialize rate limiter
+    let rate_limiter = Arc::new(TokenBucketRateLimiter::new());
+
+    // Add default rate limit rule
+    let default_rate_limit = mcp_shield::telemetry::rate_limiter::RateLimitRule {
+        rule_id: "default".to_string(),
+        scope: "global".to_string(),
+        scope_value: None,
+        algorithm: mcp_shield::telemetry::rate_limiter::RateLimitAlgorithm::TokenBucket,
+        requests_per_window: 1000,
+        window_seconds: 60,
+        burst_allowance: Some(100),
+        action: mcp_shield::telemetry::rate_limiter::RateLimitAction::Reject,
+        priority: 0,
+        enabled: true,
+    };
+    rate_limiter.add_rule(default_rate_limit).await.unwrap();
+
+    // Try to load rate limit rules from control plane
+    if let Ok(tenants) = control_plane.load_tenants().await {
+        for tenant in tenants {
+            if let Ok(rules) = control_plane.load_rate_limit_rules(&tenant.tenant_id).await {
+                for rule in rules {
+                    // Convert control plane rule to telemetry rule
+                    let telemetry_rule = mcp_shield::telemetry::rate_limiter::RateLimitRule {
+                        rule_id: rule.rule_id,
+                        scope: rule.scope,
+                        scope_value: rule.scope_value,
+                        algorithm: match rule.algorithm.as_str() {
+                            "token_bucket" => mcp_shield::telemetry::rate_limiter::RateLimitAlgorithm::TokenBucket,
+                            "sliding_window" => mcp_shield::telemetry::rate_limiter::RateLimitAlgorithm::SlidingWindow,
+                            "fixed_window" => mcp_shield::telemetry::rate_limiter::RateLimitAlgorithm::FixedWindow,
+                            _ => mcp_shield::telemetry::rate_limiter::RateLimitAlgorithm::TokenBucket,
+                        },
+                        requests_per_window: rule.requests_per_window,
+                        window_seconds: rule.window_seconds,
+                        burst_allowance: rule.burst_allowance,
+                        action: match rule.action.as_str() {
+                            "reject" => mcp_shield::telemetry::rate_limiter::RateLimitAction::Reject,
+                            "throttle" => mcp_shield::telemetry::rate_limiter::RateLimitAction::Throttle,
+                            "queue" => mcp_shield::telemetry::rate_limiter::RateLimitAction::Queue,
+                            _ => mcp_shield::telemetry::rate_limiter::RateLimitAction::Reject,
+                        },
+                        priority: rule.priority,
+                        enabled: rule.enabled,
+                    };
+                    let _ = rate_limiter.add_rule(telemetry_rule).await;
+                }
+            }
+        }
+    }
+    tracing::info!("Rate limiter initialized");
+
+    // ── 7. Initialize the router ──────────────────────────────────────────
+    let router = Arc::new(McpRouter::with_full_config(
         registry.clone(),
         proxy.clone(),
         metrics.clone(),
         config.server.server_info.name.clone(),
         config.server.server_info.version.clone(),
+        authorizer,
+        sessions,
+        audit_producer,
     ));
 
-    // ── 7. Scope enforcer (Phase 1: permissive; Phase 2: per-request JWT) ─
+    // ── 8. Scope enforcer (Phase 1: permissive; Phase 2: per-request JWT) ─
     let scope_enforcer = if config.auth.enabled {
         tracing::info!("Authentication is enabled");
         ScopeEnforcer::permissive()

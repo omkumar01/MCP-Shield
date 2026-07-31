@@ -74,7 +74,11 @@ impl StdioTransport {
             tracing::debug!(method = ?message.method(), "Processing stdio message");
 
             // Route the message through the gateway pipeline
-            match self.router.handle_message(message, &scope_enforcer).await {
+            match self
+                .router
+                .handle_message(message, &scope_enforcer, Some("stdio"))
+                .await
+            {
                 Ok(response) => {
                     self.write_message(&response).await?;
                 }

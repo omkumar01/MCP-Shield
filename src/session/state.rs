@@ -268,7 +268,7 @@ impl SessionManager for InMemorySessionManager {
 }
 
 impl Visibility {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Visibility::Public => "public",
             Visibility::Private => "private",

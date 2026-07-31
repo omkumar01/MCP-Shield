@@ -27,6 +27,14 @@ pub struct Config {
     #[serde(default)]
     pub registry: RegistryConfig,
 
+    /// Policy configuration (Phase 2).
+    #[serde(default)]
+    pub policy: PolicyConfig,
+
+    /// Guardrails configuration (Phase 3).
+    #[serde(default)]
+    pub guardrails: GuardrailsConfig,
+
     /// Telemetry settings (metrics, audit logging).
     #[serde(default)]
     pub telemetry: TelemetryConfig,
@@ -176,6 +184,34 @@ pub struct RegistryConfig {
     pub enforce_prefix_format: bool,
 }
 
+/// Policy configuration (Phase 2).
+#[derive(Debug, Clone, Deserialize)]
+pub struct PolicyConfig {
+    /// Whether Cedar policy evaluation is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Path to the Cedar policy file.
+    #[serde(default = "default_policy_file")]
+    pub policy_file: String,
+}
+
+/// Guardrails configuration (Phase 3).
+#[derive(Debug, Clone, Deserialize)]
+pub struct GuardrailsConfig {
+    /// Whether ePCA symbolic constraint evaluation is enabled.
+    #[serde(default)]
+    pub ecpa_enabled: bool,
+
+    /// Whether egress response sanitization is enabled.
+    #[serde(default)]
+    pub egress_enabled: bool,
+
+    /// Whether session context locking is enabled.
+    #[serde(default)]
+    pub session_locking: bool,
+}
+
 /// Telemetry configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct TelemetryConfig {
@@ -254,6 +290,10 @@ fn default_kafka_topic() -> String {
     "mcp-shield-audit".to_string()
 }
 
+fn default_policy_file() -> String {
+    "policies/default.cedar".to_string()
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -261,6 +301,8 @@ impl Default for Config {
             auth: AuthConfig::default(),
             proxy: ProxyConfig::default(),
             registry: RegistryConfig::default(),
+            policy: PolicyConfig::default(),
+            guardrails: GuardrailsConfig::default(),
             telemetry: TelemetryConfig::default(),
         }
     }
@@ -333,6 +375,25 @@ impl Default for TelemetryConfig {
             kafka_bootstrap_servers: vec![],
             kafka_topic: default_kafka_topic(),
             clickhouse_url: None,
+        }
+    }
+}
+
+impl Default for PolicyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            policy_file: default_policy_file(),
+        }
+    }
+}
+
+impl Default for GuardrailsConfig {
+    fn default() -> Self {
+        Self {
+            ecpa_enabled: false,
+            egress_enabled: false,
+            session_locking: false,
         }
     }
 }

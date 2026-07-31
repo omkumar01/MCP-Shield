@@ -79,6 +79,23 @@ enforce_prefix_format = true
 # Allowed namespace prefixes (empty = allow all)
 # allowed_prefixes = ["com.example", "io.github"]
 
+[policy]
+# Whether Cedar policy evaluation is enabled
+enabled = false
+
+# Path to the Cedar policy file
+policy_file = "policies/default.cedar"
+
+[guardrails]
+# Whether ePCA symbolic constraint evaluation is enabled
+ecpa_enabled = false
+
+# Whether egress response sanitization is enabled
+egress_enabled = false
+
+# Whether session context locking is enabled
+session_locking = false
+
 [telemetry]
 # Prometheus metrics configuration
 metrics_path = "/metrics"
