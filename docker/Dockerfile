@@ -48,6 +48,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
+# Override Cargo release profile for CI-friendly builds (less memory-hungry LTO)
+# Cargo.toml has lto=true + codegen-units=1 which requires >8GB RAM for linking
+ENV CARGO_PROFILE_RELEASE_LTO=thin \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=4
+
 # Copy source code
 COPY Cargo.toml Cargo.lock* ./
 COPY src/ ./src/
@@ -57,11 +62,17 @@ COPY policies/ ./policies/
 # Build the application
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo build --release --locked 2>&1 | tee /build/build.log && \
+    cargo build --release --locked 2>&1 | tee /build/build.log ; \
+    BUILD_EXIT=$? ; \
+    echo "=== BUILD EXIT CODE: $BUILD_EXIT ===" ; \
+    echo "=== Last 50 lines of build log ===" ; \
+    tail -50 /build/build.log ; \
+    echo "=== target/release contents ===" ; \
+    ls -la target/release/ 2>/dev/null || echo "target/release/ not found" ; \
+    if [ $BUILD_EXIT -ne 0 ]; then exit $BUILD_EXIT; fi ; \
     BIN=$(find target/release -maxdepth 1 -type f -executable \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) 2>/dev/null | head -n 1) && \
     if [ -z "$BIN" ]; then \
         echo "ERROR: Binary not found in target/release/"; \
-        ls -la target/release/; \
         exit 1; \
     fi && \
     cp "$BIN" /build/mcp-shield
