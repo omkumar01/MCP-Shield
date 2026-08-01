@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libclang-dev \
     clang \
-    librdkafka-dev \
+    protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -50,15 +50,17 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock* ./
 
 # Create dummy source to build dependencies
-RUN mkdir -p src && \
+RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
     echo "pub fn dummy() {}" > src/lib.rs
 
-# Build dependencies (cached layer unless Cargo.toml/Cargo.lock changes)
-# Use --locked for reproducible builds
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/build/target \
-    cargo build --release --locked --verbose 2>&1 | tee /build/deps-build.log || true
+# Pre-build dependencies (cached layer unless Cargo.toml/Cargo.lock changes)
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    cargo build --release --locked 2>&1 | tee /build/deps-build.log
+
+# Touch source files to invalidate only the application build layer
+RUN touch src/main.rs src/lib.rs
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 2: Build Application
@@ -71,15 +73,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libclang-dev \
     clang \
-    librdkafka-dev \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# Copy cached dependencies
+# Copy dependency build artifacts from deps stage
 COPY --from=deps /build/target ./target
-COPY --from=deps /usr/local/cargo/registry /usr/local/cargo/registry
 
 # Copy actual source code
 COPY Cargo.toml Cargo.lock* ./
@@ -87,19 +87,18 @@ COPY src/ ./src/
 COPY config/ ./config/
 COPY policies/ ./policies/
 
-# Build the actual application with optimizations
-# Use BuildKit cache mounts for faster incremental builds
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/build/target \
-    cargo build --release --locked --verbose 2>&1 | tee /build/build.log && \
+# Build the actual application (dependencies are cached, only app code recompiles)
+# Use cache mounts for crate registry to speed up downloads
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    cargo build --release --locked 2>&1 | tee /build/build.log && \
     BIN=$(find target/release -maxdepth 1 -type f -executable \( -name 'mcp-shield' -o -name 'mcp_shield' -o -name 'mcp-shield.exe' -o -name 'mcp_shield.exe' \) 2>/dev/null | head -n 1) && \
     if [ -z "$BIN" ]; then \
         echo "ERROR: Binary not found in target/release/"; \
         ls -la target/release/; \
         exit 1; \
     fi && \
-    cp "$BIN" /build/mcp-shield && \
-    strip /build/mcp-shield
+    cp "$BIN" /build/mcp-shield
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 3: SBOM Generation (Software Bill of Materials)
