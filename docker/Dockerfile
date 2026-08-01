@@ -60,13 +60,15 @@ COPY config/ ./config/
 COPY policies/ ./policies/
 
 # Build the application
+# Redirect to log file (no pipe) so $? captures cargo's real exit code.
+# /bin/sh on Debian slim is dash, which lacks pipefail.
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo build --release --locked 2>&1 | tee /build/build.log ; \
+    cargo build --release --locked > /build/build.log 2>&1 ; \
     BUILD_EXIT=$? ; \
     echo "=== BUILD EXIT CODE: $BUILD_EXIT ===" ; \
-    echo "=== Last 50 lines of build log ===" ; \
-    tail -50 /build/build.log ; \
+    echo "=== Last 80 lines of build log ===" ; \
+    tail -80 /build/build.log ; \
     echo "=== target/release contents ===" ; \
     ls -la target/release/ 2>/dev/null || echo "target/release/ not found" ; \
     if [ $BUILD_EXIT -ne 0 ]; then exit $BUILD_EXIT; fi ; \

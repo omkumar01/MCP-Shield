@@ -9,8 +9,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 /target/
 **/target/
-Cargo.lock
-**/Cargo.lock
+
+# NOTE: Cargo.lock is intentionally NOT ignored.
+# This is a binary crate (mcp-shield), so the lockfile MUST be committed
+# for reproducible Docker/CI builds. Only library crates omit Cargo.lock.
 
 # Rust analyzer
 rust-analyzer.toml
