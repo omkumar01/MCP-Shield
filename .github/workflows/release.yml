@@ -89,16 +89,26 @@ jobs:
           fi
 
   # ═══════════════════════════════════════════════════════════════════════════════
-  # Build Multi-Arch Docker Image
+  # Build Docker Image (per-arch, native runners — no QEMU)
   # ═══════════════════════════════════════════════════════════════════════════════
-  docker-build:
-    name: Build & Push Docker Image (Multi-Arch)
-    runs-on: ubuntu-latest
+  # Each architecture builds natively on its own runner (amd64 on ubuntu-latest,
+  # arm64 on GitHub's free native ARM runner). This avoids QEMU emulation, which
+  # was timing out (>45 min) for the Rust arm64 build.
+  docker-build-arch:
+    name: Build Image (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     needs: version
-    timeout-minutes: 45
+    timeout-minutes: 30
     outputs:
       digest: ${{ steps.build.outputs.digest }}
-      tags: ${{ steps.build.outputs.tags }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,9 +117,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            network=host
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -118,7 +125,70 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
+      - name: Get current date
+        id: date
+        run: echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Build and push single-arch image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          # Per-arch tag so the two parallel jobs don't clobber each other;
+          # the multi-arch manifest is created in the merge job below.
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          labels: |
+            org.opencontainers.image.title=MCP-Shield
+            org.opencontainers.image.description=Layer 7 protocol-aware security gateway for the Model Context Protocol (MCP)
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.created=${{ steps.date.outputs.date }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ steps.date.outputs.date }}
+            BUILD_VERSION=${{ needs.version.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            VCS_URL=${{ github.server_url }}/${{ github.repository }}
+            RUST_VERSION=${{ env.RUST_VERSION }}
+            TARGETARCH=${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          provenance: false
+
+      - name: Export per-arch digest
+        id: digest
+        run: echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+
+  # ═══════════════════════════════════════════════════════════════════════════════
+  # Merge per-arch images into a single multi-arch manifest
+  # ═══════════════════════════════════════════════════════════════════════════════
+  docker-build:
+    name: Merge Multi-Arch Manifest
+    runs-on: ubuntu-latest
+    needs: [version, docker-build-arch]
+    timeout-minutes: 10
+    outputs:
+      digest: ${{ steps.merge.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (final tags) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -130,44 +200,38 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
-          labels: |
-            org.opencontainers.image.title=MCP-Shield
-            org.opencontainers.image.description=Layer 7 protocol-aware security gateway for the Model Context Protocol (MCP)
-            org.opencontainers.image.version=${{ needs.version.outputs.version }}
-            org.opencontainers.image.created=${{ steps.date.outputs.date }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0
 
-      - name: Get current date
-        id: date
-        run: echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      - name: Merge amd64 + arm64 into a multi-arch manifest
+        id: merge
+        run: |
+          set -euo pipefail
+          # Per-arch images were pushed under arch-specific tags by the matrix job.
+          AMD64_TAG="${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA}-amd64"
+          ARM64_TAG="${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA}-arm64"
+          echo "Source images: $AMD64_TAG , $ARM64_TAG"
 
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BUILD_DATE=${{ steps.date.outputs.date }}
-            BUILD_VERSION=${{ needs.version.outputs.version }}
-            VCS_REF=${{ github.sha }}
-            VCS_URL=${{ github.server_url }}/${{ github.repository }}
-            RUST_VERSION=${{ env.RUST_VERSION }}
-            TARGETARCH=auto
-          provenance: true
-          sbom: true
+          # docker/metadata-action outputs tags as a newline-separated list.
+          TAGS_OUT="${{ steps.meta.outputs.tags }}"
+
+          # Create the multi-arch manifest under each final tag.
+          FIRST_TAG=""
+          while IFS= read -r TAG; do
+            [ -z "$TAG" ] && continue
+            [ -z "$FIRST_TAG" ] && FIRST_TAG="$TAG"
+            echo "Creating multi-arch manifest for $TAG"
+            docker buildx imagetools create -t "$TAG" "$AMD64_TAG" "$ARM64_TAG"
+          done <<< "$TAGS_OUT"
+
+          # Inspect the first final tag to obtain the multi-arch manifest digest.
+          echo "Inspecting merged manifest: $FIRST_TAG"
+          docker buildx imagetools inspect "$FIRST_TAG"
+          MERGED_DIGEST=$(docker buildx imagetools inspect "$FIRST_TAG" --format '{{.Manifest.Digest}}')
+          echo "Merged multi-arch manifest digest: $MERGED_DIGEST"
+          echo "digest=$MERGED_DIGEST" >> $GITHUB_OUTPUT
 
       - name: Output image digest
         run: |
-          echo "Image digest: ${{ steps.build.outputs.digest }}"
+          echo "Image digest: ${{ steps.merge.outputs.digest }}"
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
 
   # ═══════════════════════════════════════════════════════════════════════════════
