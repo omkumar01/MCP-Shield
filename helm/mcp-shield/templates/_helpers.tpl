@@ -29,6 +29,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+  Chart name (with optional override)
+*/}}
+{{- define "mcp-shield.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
   Release name with chart name
 */}}
 {{- define "mcp-shield.fullname" -}}

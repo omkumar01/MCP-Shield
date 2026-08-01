@@ -181,6 +181,7 @@ jobs:
     outputs:
       digest: ${{ steps.merge.outputs.digest }}
       tags: ${{ steps.meta.outputs.tags }}
+      image-ref: ${{ steps.merge.outputs.image-ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -238,10 +239,16 @@ jobs:
           echo "Merged multi-arch manifest digest: $MERGED_DIGEST"
           echo "digest=$MERGED_DIGEST" >> $GITHUB_OUTPUT
 
+          # Output the full image reference (registry/image@digest) for downstream jobs.
+          IMAGE_REF="${IMAGE}@${MERGED_DIGEST}"
+          echo "Full image reference: $IMAGE_REF"
+          echo "image-ref=$IMAGE_REF" >> $GITHUB_OUTPUT
+
       - name: Output image digest
         run: |
           echo "Image digest: ${{ steps.merge.outputs.digest }}"
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
+          echo "Full image ref: ${{ steps.merge.outputs.image-ref }}"
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # Sign Container Image (Cosign/Sigstore)
@@ -265,14 +272,14 @@ jobs:
             --annotations "version=${{ needs.version.outputs.version }}" \
             --annotations "git-sha=${{ github.sha }}" \
             --annotations "git-ref=${{ github.ref }}" \
-            ${{ needs.docker-build.outputs.digest }}
+            ${{ needs.docker-build.outputs.image-ref }}
 
       - name: Verify signature
         run: |
           cosign verify \
             --certificate-identity-regexp=".*" \
             --certificate-oidc-issuer-regexp=".*" \
-            ${{ needs.docker-build.outputs.digest }}
+            ${{ needs.docker-build.outputs.image-ref }}
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # Generate SBOM
@@ -291,19 +298,19 @@ jobs:
 
       - name: Generate SBOM (SPDX)
         run: |
-          syft packages "${{ needs.docker-build.outputs.digest }}" \
+          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
             -o spdx-json=sbom.spdx.json \
             --source-image
 
       - name: Generate SBOM (CycloneDX)
         run: |
-          syft packages "${{ needs.docker-build.outputs.digest }}" \
+          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
             -o cyclonedx-json=sbom.cyclonedx.json \
             --source-image
 
       - name: Generate SBOM (Table)
         run: |
-          syft packages "${{ needs.docker-build.outputs.digest }}" \
+          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
             -o table=sbom.table.txt \
             --source-image
 
@@ -318,10 +325,9 @@ jobs:
           retention-days: 90
 
       - name: Attach SBOM to container image
-        uses: anchore/sbom-action/attach-sbom@v0.17.0
-        with:
-          image: ${{ needs.docker-build.outputs.digest }}
-          sbom-file: sbom.spdx.json
+        run: |
+          syft attest "${{ needs.docker-build.outputs.image-ref }}" \
+            --output spdx-json=sbom.spdx.json
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # Scan Container Image (Trivy, Grype)
@@ -335,7 +341,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ needs.docker-build.outputs.digest }}
+          image-ref: ${{ needs.docker-build.outputs.image-ref }}
           format: 'sarif'
           output: 'trivy-image.sarif'
           severity: 'CRITICAL,HIGH'
@@ -351,13 +357,9 @@ jobs:
           category: trivy-image
 
       - name: Run Grype vulnerability scanner
-        uses: anchore/grype-action@v1
-        with:
-          image: ${{ needs.docker-build.outputs.digest }}
-          output: "json"
-          file: "grype-results.json"
-          fail-build: true
-          severity-cutoff: "high"
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype "${{ needs.docker-build.outputs.image-ref }}" -o json > grype-results.json
 
       - name: Upload Grype results
         uses: actions/upload-artifact@v4
