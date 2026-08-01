@@ -499,9 +499,11 @@ jobs:
           else
             git log --pretty=format:"- %s (%an)" > /tmp/changelog.md
           fi
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          # Use a unique delimiter that won't appear in commit messages
+          DELIMITER="CHANGELOG_EOF_$(date +%s)"
+          echo "changelog<<$DELIMITER" >> $GITHUB_OUTPUT
           cat /tmp/changelog.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$DELIMITER" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
