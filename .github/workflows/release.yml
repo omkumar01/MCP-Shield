@@ -266,6 +266,13 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Sign image with Cosign
         run: |
           cosign sign --yes \
@@ -293,26 +300,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0.17.0
 
       - name: Generate SBOM (SPDX)
         run: |
-          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
-            -o spdx-json=sbom.spdx.json \
-            --source-image
+          syft scan "${{ needs.docker-build.outputs.image-ref }}" \
+            -o spdx-json=sbom.spdx.json
 
       - name: Generate SBOM (CycloneDX)
         run: |
-          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
-            -o cyclonedx-json=sbom.cyclonedx.json \
-            --source-image
+          syft scan "${{ needs.docker-build.outputs.image-ref }}" \
+            -o cyclonedx-json=sbom.cyclonedx.json
 
       - name: Generate SBOM (Table)
         run: |
-          syft packages "${{ needs.docker-build.outputs.image-ref }}" \
-            -o table=sbom.table.txt \
-            --source-image
+          syft scan "${{ needs.docker-build.outputs.image-ref }}" \
+            -o table=sbom.table.txt
 
       - name: Upload SBOM as artifact
         uses: actions/upload-artifact@v4
@@ -338,6 +349,13 @@ jobs:
     needs: [docker-build]
     timeout-minutes: 20
     steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:

@@ -651,6 +651,9 @@ networkPolicy:
 # ─────────────────────────────────────────────────────────────────────────────
 rbac:
   create: true
+  # Cluster-scoped RBAC resources (ClusterRole, ClusterRoleBinding)
+  clusterRole:
+    create: true
   # Additional rules for the service account
   rules: []
   # Example for External Secrets Operator:
