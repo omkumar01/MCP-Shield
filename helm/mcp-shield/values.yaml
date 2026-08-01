@@ -167,7 +167,13 @@ ingress:
     enabled: false
     serviceName: ""
     servicePort: 80
-
+  # cert-manager integration (automatic TLS certificates)
+  certManager:
+    enabled: false
+    issuerName: "letsencrypt-prod"
+    issuerKind: "ClusterIssuer"
+    # duration: 2160h  # 90 days
+    # renewBefore: 360h  # 15 days
 # ─────────────────────────────────────────────────────────────────────────────
 # Replica Count
 # ─────────────────────────────────────────────────────────────────────────────

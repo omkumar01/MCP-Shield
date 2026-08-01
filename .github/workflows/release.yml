@@ -340,8 +340,7 @@ jobs:
 
       - name: Attach SBOM to container image
         run: |
-          syft attest "${{ needs.docker-build.outputs.image-ref }}" \
-            --output spdx-json=sbom.spdx.json
+          syft attest "${{ needs.docker-build.outputs.image-ref }}" -o spdx-json=sbom.spdx.json
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # Scan Container Image (Trivy, Grype)
