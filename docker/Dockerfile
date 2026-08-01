@@ -31,40 +31,10 @@ ARG VCS_REF
 ARG VCS_URL="https://github.com/omkumar01/mcp-shield"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STAGE 1: Dependency Caching (Leverage Docker Layer Caching)
+# STAGE 1: Build Application
 # ─────────────────────────────────────────────────────────────────────────────
-FROM ${BUILDER_IMAGE} AS deps
-
-# Install system dependencies for building
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config \
-    libssl-dev \
-    libclang-dev \
-    clang \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-# Copy only dependency manifests first (maximizes cache hits)
-COPY Cargo.toml Cargo.lock* ./
-
-# Create dummy source to build dependencies
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "pub fn dummy() {}" > src/lib.rs
-
-# Pre-build dependencies (cached layer unless Cargo.toml/Cargo.lock changes)
-RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    cargo build --release --locked 2>&1 | tee /build/deps-build.log
-
-# Touch source files to invalidate only the application build layer
-RUN touch src/main.rs src/lib.rs
-
-# ─────────────────────────────────────────────────────────────────────────────
-# STAGE 2: Build Application
-# ─────────────────────────────────────────────────────────────────────────────
+# GHA provides its own cross-build cache via cache-from: type=gha / cache-to: type=gha,mode=max
+# BuildKit cache mounts for cargo registry/git accelerate crate downloads
 FROM ${BUILDER_IMAGE} AS builder
 
 # Install build dependencies
@@ -78,17 +48,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Copy dependency build artifacts from deps stage
-COPY --from=deps /build/target ./target
-
-# Copy actual source code
+# Copy source code
 COPY Cargo.toml Cargo.lock* ./
 COPY src/ ./src/
 COPY config/ ./config/
 COPY policies/ ./policies/
 
-# Build the actual application (dependencies are cached, only app code recompiles)
-# Use cache mounts for crate registry to speed up downloads
+# Build the application
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo build --release --locked 2>&1 | tee /build/build.log && \
