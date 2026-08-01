@@ -662,6 +662,18 @@ rbac:
   #   verbs: ["get", "list", "watch"]
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Pod Security Policy (Deprecated in K8s 1.25+, use Pod Security Standards)
+# ─────────────────────────────────────────────────────────────────────────────
+podSecurityPolicy:
+  create: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pod Security Standards (Kyverno/Admission Controller policies)
+# ─────────────────────────────────────────────────────────────────────────────
+podSecurityStandards:
+  enabled: false
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Service Monitor (for Prometheus Operator)
 # ─────────────────────────────────────────────────────────────────────────────
 serviceMonitor:

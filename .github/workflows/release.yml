@@ -335,6 +335,9 @@ jobs:
             sbom.table.txt
           retention-days: 90
 
+      - name: Install Cosign (for syft attest)
+        uses: sigstore/cosign-installer@v3
+
       - name: Attach SBOM to container image
         run: |
           syft attest "${{ needs.docker-build.outputs.image-ref }}" \
