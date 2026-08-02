@@ -56,7 +56,7 @@ rustup default stable-x86_64-pc-windows-gnu
 ### 1. Clone and Build
 
 ```bash
-git clone https://github.com/mcp-shield/mcp-shield
+git clone https://github.com/omkumar01/mcp-shield
 cd mcp-shield
 
 # Build release binary
@@ -478,6 +478,6 @@ make help
 
 ## Getting Help
 
-- **Issues**: https://github.com/mcp-shield/mcp-shield/issues
-- **Discussions**: https://github.com/mcp-shield/mcp-shield/discussions
-- **Documentation**: https://github.com/mcp-shield/mcp-shield/docs
+- **Issues**: https://github.com/omkumar01/mcp-shield/issues
+- **Discussions**: https://github.com/omkumar01/mcp-shield/discussions
+- **Documentation**: https://github.com/omkumar01/mcp-shield/docs

@@ -333,8 +333,8 @@ This checklist ensures MCP-Shield is production-ready across all critical dimens
 ```bash
 # Security
 make security-scan
-cosign verify ghcr.io/mcp-shield/mcp-shield:v0.1.0
-syft packages ghcr.io/mcp-shield/mcp-shield:v0.1.0 -o table
+cosign verify ghcr.io/omkumar01/mcp-shield:v0.1.0
+syft packages ghcr.io/omkumar01/mcp-shield:v0.1.0 -o table
 
 # Kubernetes
 kubectl get networkpolicy -n mcp-shield

@@ -23,7 +23,7 @@ groups:
         annotations:
           summary: "MCP-Shield instance {{ $labels.instance }} is down"
           description: "MCP-Shield instance {{ $labels.instance }} has been down for more than 1 minute."
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/instance-down.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/instance-down.md"
 
       # High Request Latency (p99 > 500ms)
       - alert: MCPShieldHighLatency
@@ -37,7 +37,7 @@ groups:
         annotations:
           summary: "MCP-Shield high request latency (p99 > 500ms)"
           description: "MCP-Shield {{ $labels.method }} requests have p99 latency of {{ $value | printf \"%.3f\" }}s"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-latency.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/high-latency.md"
 
       # High Error Rate (> 5%)
       - alert: MCPShieldHighErrorRate
@@ -55,7 +55,7 @@ groups:
         annotations:
           summary: "MCP-Shield high error rate (> 5%)"
           description: "MCP-Shield {{ $labels.method }} requests have error rate of {{ $value | humanizePercentage }}"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-error-rate.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/high-error-rate.md"
 
       # Authentication Failures Spike
       - alert: MCPShieldAuthFailuresSpike
@@ -69,7 +69,7 @@ groups:
         annotations:
           summary: "MCP-Shield authentication failures spike"
           description: "Authentication failures rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/auth-failures.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/auth-failures.md"
 
       # Validation Failures Spike
       - alert: MCPShieldValidationFailuresSpike
@@ -83,7 +83,7 @@ groups:
         annotations:
           summary: "MCP-Shield validation failures spike"
           description: "Validation failures rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/validation-failures.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/validation-failures.md"
 
       # Blocked Requests Spike
       - alert: MCPShieldBlockedRequestsSpike
@@ -97,7 +97,7 @@ groups:
         annotations:
           summary: "MCP-Shield blocked requests spike"
           description: "Blocked requests rate is {{ $value | printf \"%.2f\" }}/s (reason: {{ $labels.reason }})"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/blocked-requests.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/blocked-requests.md"
 
       # Active Sessions High
       - alert: MCPShieldHighActiveSessions
@@ -111,7 +111,7 @@ groups:
         annotations:
           summary: "MCP-Shield high active sessions ({{ $value }})"
           description: "Active MCP sessions exceeded 10,000. Current: {{ $value }}"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-sessions.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/high-sessions.md"
 
       # Upstream Server Down
       - alert: MCPShieldUpstreamDown
@@ -125,7 +125,7 @@ groups:
         annotations:
           summary: "MCP-Shield upstream server {{ $labels.instance }} is down"
           description: "Upstream MCP server {{ $labels.instance }} has been down for more than 1 minute"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/upstream-down.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/upstream-down.md"
 
       # Upstream High Latency
       - alert: MCPShieldUpstreamHighLatency
@@ -139,7 +139,7 @@ groups:
         annotations:
           summary: "MCP-Shield upstream {{ $labels.server }} high latency"
           description: "Upstream {{ $labels.server }} p99 latency is {{ $value | printf \"%.3f\" }}s"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/upstream-latency.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/upstream-latency.md"
 
       # Circuit Breaker Open
       - alert: MCPShieldCircuitBreakerOpen
@@ -153,7 +153,7 @@ groups:
         annotations:
           summary: "MCP-Shield circuit breaker open for {{ $labels.server }}"
           description: "Circuit breaker for upstream {{ $labels.server }} is open. Requests are being rejected."
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/circuit-breaker.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/circuit-breaker.md"
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # MCP-Shield Resource Alerts
@@ -173,7 +173,7 @@ groups:
         annotations:
           summary: "MCP-Shield pod {{ $labels.pod }} high memory usage ({{ $value | humanizePercentage }})"
           description: "Memory usage is above 85% of limit. Current: {{ $value | humanizePercentage }}"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-memory.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/high-memory.md"
 
       # High CPU Usage
       - alert: MCPShieldHighCPUUsage
@@ -187,7 +187,7 @@ groups:
         annotations:
           summary: "MCP-Shield pod {{ $labels.pod }} high CPU usage ({{ $value | humanizePercentage }})"
           description: "CPU usage is above 85% of limit. Current: {{ $value | humanizePercentage }}"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/high-cpu.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/high-cpu.md"
 
       # Pod Restart Loop
       - alert: MCPShieldPodRestartLoop
@@ -201,7 +201,7 @@ groups:
         annotations:
           summary: "MCP-Shield pod {{ $labels.pod }} restarting frequently"
           description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/pod-restarts.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/pod-restarts.md"
 
       # HPA Scaling
       - alert: MCPShieldHPAMaxReplicasReached
@@ -215,7 +215,7 @@ groups:
         annotations:
           summary: "MCP-Shield HPA at max replicas"
           description: "HPA has been at max replicas ({{ $value }}) for more than 10 minutes"
-          runbook_url: "https://github.com/mcp-shield/mcp-shield/blob/main/docs/operations/runbooks/hpa-max-replicas.md"
+          runbook_url: "https://github.com/omkumar01/mcp-shield/blob/main/docs/operations/runbooks/hpa-max-replicas.md"
 
   # ═══════════════════════════════════════════════════════════════════════════════
   # Infrastructure Alerts

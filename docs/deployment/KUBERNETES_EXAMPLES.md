@@ -211,7 +211,7 @@ spec:
               app.kubernetes.io/name: mcp-shield
       containers:
         - name: mcp-shield
-          image: ghcr.io/mcp-shield/mcp-shield:v0.1.0
+          image: ghcr.io/omkumar01/mcp-shield:v0.1.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -621,7 +621,7 @@ commonLabels:
   team: platform
 
 images:
-  - name: ghcr.io/mcp-shield/mcp-shield
+  - name: ghcr.io/omkumar01/mcp-shield
     newTag: v0.1.0
     digest: sha256:abc123...
 ```
@@ -667,7 +667,7 @@ spec:
     spec:
       containers:
         - name: mcp-shield
-          image: ghcr.io/mcp-shield/mcp-shield@sha256:abc123def456...
+          image: ghcr.io/omkumar01/mcp-shield@sha256:abc123def456...
 ```
 
 ```yaml

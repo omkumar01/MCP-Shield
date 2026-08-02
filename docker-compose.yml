@@ -156,7 +156,7 @@ services:
         BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
         BUILD_VERSION: ${BUILD_VERSION:-dev}
         VCS_REF: ${VCS_REF:-$(git rev-parse --short HEAD)}
-        VCS_URL: ${VCS_URL:-https://github.com/mcp-shield/mcp-shield}
+        VCS_URL: ${VCS_URL:-https://github.com/omkumar01/mcp-shield}
     container_name: mcp-shield-gateway
     hostname: mcp-shield
     restart: unless-stopped

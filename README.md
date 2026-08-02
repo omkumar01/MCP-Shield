@@ -46,7 +46,7 @@ rustup toolchain install stable-x86_64-pc-windows-gnu
 ### Build
 
 ```bash
-git clone https://github.com/mcp-shield/mcp-shield
+git clone https://github.com/omkumar01/mcp-shield
 cd mcp-shield
 
 # With MSVC (requires Visual Studio Build Tools)
@@ -388,6 +388,16 @@ mcp-shield/
 - **Phase 3** 🔄 ePCA constraints, egress sanitization
 - **Phase 4** 🔄 PostgreSQL control plane, Helm production hardening
 
-## License
+---
 
-PolyForm Noncommercial License 1.0.0
+## 📄 License
+
+**PolyForm Noncommercial License 1.0.0** — See [LICENSE](LICENSE) for details.
+
+This license permits:
+- ✅ Personal use
+- ✅ Academic research
+- ✅ Evaluation & testing
+- ❌ Commercial use (requires commercial license)
+
+For commercial licensing, contact: **omkumarsahu747@gmail.com**

@@ -18,7 +18,7 @@ global:
 # ─────────────────────────────────────────────────────────────────────────────
 image:
   registry: docker.io
-  repository: mcp-shield/mcp-shield
+  repository: omkumar01/mcp-shield
   tag: dev
   pullPolicy: Never
 

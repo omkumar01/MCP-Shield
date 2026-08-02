@@ -331,5 +331,5 @@ docker system prune -af --volumes
 
 ## Support
 
-- **Issues**: https://github.com/mcp-shield/mcp-shield/issues
-- **Docs**: https://github.com/mcp-shield/mcp-shield/docs
+- **Issues**: https://github.com/omkumar01/mcp-shield/issues
+- **Docs**: https://github.com/omkumar01/mcp-shield/docs

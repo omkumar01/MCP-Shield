@@ -87,7 +87,7 @@ MCP-Shield is a Layer 7 protocol-aware security gateway for the Model Context Pr
 
 ```bash
 # Clone repository
-git clone https://github.com/mcp-shield/mcp-shield
+git clone https://github.com/omkumar01/mcp-shield
 cd mcp-shield
 
 # Install Rust toolchain
@@ -266,7 +266,7 @@ helm repo add mcp-shield https://charts.mcp-shield.io
 helm repo update
 
 # Install with default values
-helm install mcp-shield mcp-shield/mcp-shield \
+helm install mcp-shield omkumar01/mcp-shield \
   --namespace mcp-shield \
   --create-namespace
 ```
@@ -302,7 +302,7 @@ helm install mcp-shield ./helm/mcp-shield \
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `3` |
-| `image.repository` | Docker image repository | `ghcr.io/mcp-shield/mcp-shield` |
+| `image.repository` | Docker image repository | `ghcr.io/omkumar01/mcp-shield` |
 | `image.tag` | Docker image tag | Chart appVersion |
 | `config.auth.enabled` | Enable authentication | `false` |
 | `config.auth.jwks_url` | JWKS endpoint URL | `""` |
@@ -844,19 +844,19 @@ spec:
 
 ```bash
 # Verify image signature
-cosign verify ghcr.io/mcp-shield/mcp-shield:v0.1.0 \
+cosign verify ghcr.io/omkumar01/mcp-shield:v0.1.0 \
   --certificate-identity-regexp=".*" \
   --certificate-oidc-issuer-regexp=".*"
 
 # Verify SBOM
-syft packages ghcr.io/mcp-shield/mcp-shield:v0.1.0 -o table
+syft packages ghcr.io/omkumar01/mcp-shield:v0.1.0 -o table
 ```
 
 ---
 
 ## Support
 
-- **Documentation**: https://github.com/mcp-shield/mcp-shield/docs
-- **Issues**: https://github.com/mcp-shield/mcp-shield/issues
-- **Discussions**: https://github.com/mcp-shield/mcp-shield/discussions
+- **Documentation**: https://github.com/omkumar01/mcp-shield/docs
+- **Issues**: https://github.com/omkumar01/mcp-shield/issues
+- **Discussions**: https://github.com/omkumar01/mcp-shield/discussions
 - **Security**: security@mcp-shield.io
